@@ -1,0 +1,13 @@
+{
+  "authApiKey": "AI32kj432k32dfsf32jj4k2jk432fF9Y",
+  "authDomain": "test-project.firebaseapp.com",
+  "id": "demo",
+  "name": "Apigee AI Portal",
+  "productGroups": [
+    {
+      "allUsers": true,
+      "productGroupId": "core-products-qzrd",
+      "selectedAudiences": []
+    }
+  ]
+}

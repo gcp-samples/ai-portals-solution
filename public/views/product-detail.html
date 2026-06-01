@@ -1,0 +1,514 @@
+<div class="detail-container">
+  <!-- Back button -->
+  <button class="btn btn-secondary btn-sm" onclick="app.navigate('catalog')" style="margin-bottom: 2rem;">
+    <i data-lucide="arrow-left" style="width:1rem; height:1rem;"></i>
+    Back to Catalog
+  </button>
+
+  <div class="detail-layout">
+    <!-- Left Column: Details -->
+    <div class="detail-main-info">
+      <div class="panel detail-hero-panel">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div class="detail-icon-box" id="detail-icon-box">
+            <i data-lucide="globe" style="width:2rem; height:2rem;"></i>
+          </div>
+          <span class="style-badge" id="detail-style-badge">REST</span>
+        </div>
+        
+        <h1 class="detail-title" id="detail-title">Loading...</h1>
+        <p class="detail-desc" id="detail-desc">Fetching details of the product...</p>
+        
+        <div style="border-top:1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1.5rem;">
+          <h4 style="margin-bottom:0.75rem; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Endpoints</h4>
+          <div class="endpoint-url-box" id="detail-endpoints-list">
+            <!-- Dynamic endpoints lists -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- Scalar OpenAPI Spec Section -->
+      <div class="panel detail-spec-panel" id="detail-spec-panel" style="display:none; margin-top:2rem;">
+        <h3 style="margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem;">
+          <i data-lucide="file-code" style="width:1.25rem; height:1.25rem; color:var(--primary);"></i>
+          Interactive API Reference
+        </h3>
+        
+        <div id="scalar-reference" class="scalar-mount-point">
+          <!-- Scalar renders here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Subscriptions & Actions -->
+    <div class="detail-side-actions">
+      <div class="panel subscription-status-panel">
+        <h3><i data-lucide="key-round" style="width:1.25rem; height:1.25rem; color:var(--success); display:inline-block; vertical-align:middle; margin-right:0.5rem;"></i>Subscription</h3>
+        
+        <div id="sub-status-loading" style="padding:1rem 0; color:var(--text-muted); text-align:center;">
+          Checking subscription status...
+        </div>
+        
+        <!-- Case 1: Anonymous -->
+        <div id="sub-status-anonymous" style="display:none;">
+          <p style="color:var(--text-secondary); margin-bottom:1.5rem; font-size:0.9rem;">Sign in to subscribe to this API, generate credentials, and track your usage metrics.</p>
+          <button class="btn btn-primary" onclick="app.openAuthModal()" style="width:100%;">Sign In / Register</button>
+        </div>
+
+        <!-- Case 2: Logged In -->
+        <div id="sub-status-authenticated" style="display:none;">
+          <div id="sub-status-included-box" style="display:none; margin-bottom:1.5rem;">
+            <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:0.75rem;">This API is active in the following apps:</p>
+            <div class="subscribed-apps-list" id="subscribed-apps-list">
+              <!-- Dynamically listed apps -->
+            </div>
+          </div>
+          
+          <div id="sub-status-subscribe-box">
+            <h4 style="font-size:0.875rem; margin-bottom:0.75rem;">Add to Application</h4>
+            <div class="auth-form-group" style="margin-bottom:1rem;">
+              <select id="sub-app-select" class="input-control select-control" style="width:100%; font-size:0.9rem;">
+                <option value="">-- Choose Application --</option>
+                <!-- Dynamically filled with unsubscribed apps -->
+              </select>
+            </div>
+            <button class="btn btn-primary" id="btn-subscribe-to-app" onclick="subscribeProductToSelectedApp()" style="width:100%; font-size:0.9rem;" disabled>
+              Add Subscription
+            </button>
+            
+            <div class="auth-divider">or</div>
+            
+            <button class="btn btn-secondary" onclick="app.navigate('apps')" style="width:100%; font-size:0.9rem;">
+              Create New App
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.detail-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+  align-items: flex-start;
+}
+@media (max-width: 968px) {
+  .detail-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.detail-hero-panel {
+  padding: 2.5rem;
+}
+.detail-icon-box {
+  width: 3.5rem;
+  height: 3.5rem;
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+.detail-title {
+  font-size: 2.25rem;
+  margin-bottom: 1rem;
+}
+.detail-desc {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+}
+
+.endpoint-url-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.endpoint-item {
+  font-family: monospace;
+  font-size: 0.85rem;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+  word-break: break-all;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.subscription-status-panel {
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.subscription-status-panel h3 {
+  font-size: 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.subscribed-apps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.sub-app-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: var(--success);
+  font-size: 0.875rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.sub-app-item:hover {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: var(--success);
+}
+
+/* Scalar overrides to fit cleanly */
+.scalar-mount-point {
+  background: var(--bg-color);
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+  min-height: 400px;
+  max-height: 800px;
+  overflow-y: auto;
+}
+</style>
+
+<script>
+let currentProduct = null;
+let currentUnsubscribedApps = [];
+
+window.viewInitializers['product-detail'] = async function(productId) {
+  console.log("Loading product details for:", productId);
+  
+  if (!productId) {
+    app.navigate('catalog');
+    return;
+  }
+  
+  await fetchProductDetails(productId);
+  await handleSubscriptionStatusUI(productId);
+};
+
+async function fetchProductDetails(productId) {
+  try {
+    let products = [];
+    if (CONFIG.demoMode) {
+      const res = await fetch('/mock-products.json');
+      products = await res.json();
+    } else {
+      const res = await fetch(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/products`);
+      if (!res.ok) throw new Error();
+      products = await res.json();
+    }
+    
+    currentProduct = products.find(p => p.productId === productId || p.id === productId);
+    if (!currentProduct) {
+      app.showToast("Product not found", "error");
+      app.navigate('catalog');
+      return;
+    }
+    
+    // Fill text content
+    document.getElementById('detail-title').textContent = currentProduct.displayName || currentProduct.name;
+    document.getElementById('detail-desc').textContent = currentProduct.displayDescription || 'Access is available for this product on the enterprise platform.';
+    
+    const styleBadge = document.getElementById('detail-style-badge');
+    styleBadge.textContent = currentProduct.displayStyle || 'API';
+    styleBadge.className = `style-badge ${(currentProduct.displayStyle || '').toLowerCase()}`;
+    
+    // Fill endpoints list
+    const endpointsList = document.getElementById('detail-endpoints-list');
+    let endpointsHtml = '';
+    if (currentProduct.endpoints && currentProduct.endpoints.length > 0) {
+      currentProduct.endpoints.forEach(ep => {
+        endpointsHtml += `
+          <div class="endpoint-item">
+            <i data-lucide="server" style="width:1rem; height:1rem; color:var(--text-muted); flex-shrink:0;"></i>
+            <span>${ep}</span>
+          </div>
+        `;
+      });
+    } else {
+      endpointsHtml = `<div class="endpoint-item" style="color:var(--text-muted);">No endpoint URL provided</div>`;
+    }
+    endpointsList.innerHTML = endpointsHtml;
+    
+    // Setup Icon box
+    let icon = 'globe';
+    if (currentProduct.displayStyle === 'REST') icon = 'globe';
+    if (currentProduct.displayStyle === 'MCP') icon = 'wrench';
+    if (currentProduct.displayStyle === 'A2A') icon = 'bot';
+    document.getElementById('detail-icon-box').innerHTML = `<i data-lucide="${icon}" style="width:2rem; height:2rem;"></i>`;
+    
+    // Handle OpenAPI Spec rendering via Scalar for REST style
+    if (currentProduct.displayStyle === 'REST') {
+      await fetchAndRenderOpenApiSpec(productId);
+    } else {
+      document.getElementById('detail-spec-panel').style.display = 'none';
+    }
+    
+    lucide.createIcons();
+  } catch (err) {
+    console.error(err);
+    app.showToast("Failed to fetch product details", "error");
+  }
+}
+
+async function fetchAndRenderOpenApiSpec(productId) {
+  const specPanel = document.getElementById('detail-spec-panel');
+  specPanel.style.display = 'block';
+  
+  try {
+    let specContent;
+    // Standard spec fetch
+    const url = `${CONFIG.apiHost}/api/products/${productId}/spec`;
+    const res = await fetch(url);
+    if (res.ok) {
+      specContent = await res.text();
+    } else {
+      throw new Error("Local backend spec not available");
+    }
+    
+    // Render in Scalar
+    renderScalarSpec(specContent);
+  } catch (err) {
+    console.warn("Could not load backend spec, loading beautiful fallback spec content:", err);
+    // Provide a beautiful mock spec so that Scalar doesn't crash in local demo mode!
+    const mockSpec = `
+openapi: 3.0.0
+info:
+  title: ${currentProduct.displayName || currentProduct.name} Spec
+  description: Dynamic sandbox endpoint for testing the REST style AI models.
+  version: 1.0.0
+paths:
+  /chat/completions:
+    post:
+      summary: Send an AI chat generation request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                        example: user
+                      content:
+                        type: string
+                        example: Hello world!
+                temperature:
+                  type: number
+                  example: 0.7
+      responses:
+        '200':
+          description: Successful AI generation response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  choices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        message:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            content:
+                              type: string
+    `;
+    renderScalarSpec(mockSpec);
+  }
+}
+
+function renderScalarSpec(specData) {
+  const referenceContainer = document.getElementById('scalar-reference');
+  if (!referenceContainer) return;
+  
+  // Clean container
+  referenceContainer.innerHTML = '';
+  
+  try {
+    // Scalar mounting call
+    Scalar.createApiReference(referenceContainer, {
+      spec: {
+        content: specData
+      },
+      showSidebar: false,
+      theme: app.theme === 'light' ? 'default' : 'moon'
+    });
+  } catch (err) {
+    console.error("Scalar initialization crash", err);
+    referenceContainer.innerHTML = `<div style="padding:2rem; text-align:center; color:var(--text-secondary);">Interactive playgrounds require modern baseline web components.</div>`;
+  }
+}
+
+async function handleSubscriptionStatusUI(productId) {
+  const loader = document.getElementById('sub-status-loading');
+  const anonBox = document.getElementById('sub-status-anonymous');
+  const authBox = document.getElementById('sub-status-authenticated');
+  const includedBox = document.getElementById('sub-status-included-box');
+  const includedList = document.getElementById('subscribed-apps-list');
+  const appSelect = document.getElementById('sub-app-select');
+  const btnSub = document.getElementById('btn-subscribe-to-app');
+  
+  loader.style.display = 'block';
+  anonBox.style.display = 'none';
+  authBox.style.display = 'none';
+  
+  if (!app.user) {
+    loader.style.display = 'none';
+    anonBox.style.display = 'block';
+    return;
+  }
+  
+  try {
+    // Load developer apps
+    let userApps = [];
+    if (CONFIG.demoMode) {
+      // Load apps from localStorage or mock
+      const cached = localStorage.getItem('prism_apps_demo');
+      if (cached) {
+        userApps = JSON.parse(cached);
+      } else {
+        const res = await fetch('/mock-apps.json');
+        userApps = await res.json();
+        localStorage.setItem('prism_apps_demo', JSON.stringify(userApps));
+      }
+    } else {
+      const res = await app.makeRequest(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${app.user.email}/apps`);
+      if (!res.ok) throw new Error();
+      userApps = await res.json();
+    }
+    
+    app.apps = userApps;
+    loader.style.display = 'none';
+    authBox.style.display = 'block';
+    
+    // Check which apps already have this product subscribed
+    const prodIdToCheck = currentProduct.productId || currentProduct.id;
+    const includedApps = [];
+    currentUnsubscribedApps = [];
+    
+    userApps.forEach(a => {
+      const hasProduct = a.credentials && a.credentials.some(cred => cred.products && cred.products.includes(prodIdToCheck));
+      if (hasProduct) {
+        includedApps.push(a);
+      } else {
+        currentUnsubscribedApps.push(a);
+      }
+    });
+    
+    // Fill subscribed apps
+    if (includedApps.length > 0) {
+      includedBox.style.display = 'block';
+      let listHtml = '';
+      includedApps.forEach(ia => {
+        listHtml += `
+          <div class="sub-app-item" onclick="app.navigate('apps')">
+            <span>${ia.name}</span>
+            <i data-lucide="arrow-up-right" style="width:1rem; height:1rem;"></i>
+          </div>
+        `;
+      });
+      includedList.innerHTML = listHtml;
+    } else {
+      includedBox.style.display = 'none';
+    }
+    
+    // Fill option box for subscribing
+    appSelect.innerHTML = `<option value="">-- Choose Application --</option>`;
+    if (currentUnsubscribedApps.length > 0) {
+      currentUnsubscribedApps.forEach(ua => {
+        appSelect.innerHTML += `<option value="${ua.id}">${ua.name}</option>`;
+      });
+      appSelect.disabled = false;
+      
+      appSelect.onchange = function() {
+        btnSub.disabled = !appSelect.value;
+      };
+    } else {
+      appSelect.innerHTML += `<option value="" disabled>All apps subscribed!</option>`;
+      appSelect.disabled = true;
+      btnSub.disabled = true;
+    }
+    
+    lucide.createIcons();
+  } catch (err) {
+    console.error(err);
+    loader.textContent = "Error loading subscription status.";
+  }
+}
+
+async function subscribeProductToSelectedApp() {
+  const appSelect = document.getElementById('sub-app-select');
+  const appId = appSelect.value;
+  if (!appId || !currentProduct) return;
+  
+  const targetApp = app.apps.find(a => a.id === appId);
+  if (!targetApp) return;
+  
+  const prodId = currentProduct.productId || currentProduct.id;
+  
+  // Make sure products array exists in credentials
+  if (!targetApp.credentials || targetApp.credentials.length === 0) {
+    targetApp.credentials = [{ clientId: '', clientSecret: '', products: [] }];
+  }
+  if (!targetApp.credentials[0].products) {
+    targetApp.credentials[0].products = [];
+  }
+  
+  // Push product
+  targetApp.credentials[0].products.push(prodId);
+  
+  try {
+    app.showToast("Adding product subscription...", "info");
+    
+    if (CONFIG.demoMode) {
+      // Save locally
+      localStorage.setItem('prism_apps_demo', JSON.stringify(app.apps));
+      app.showToast(`Subscribed successfully to ${targetApp.name}!`, "success");
+      await handleSubscriptionStatusUI(prodId);
+    } else {
+      // Put to server
+      const res = await app.makeRequest(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${app.user.email}/apps`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(targetApp)
+      });
+      if (!res.ok) throw new Error();
+      
+      app.showToast(`Subscribed successfully to ${targetApp.name}!`, "success");
+      await handleSubscriptionStatusUI(prodId);
+    }
+  } catch (err) {
+    console.error(err);
+    app.showToast("Failed to save subscription update.", "error");
+  }
+}
+</script>

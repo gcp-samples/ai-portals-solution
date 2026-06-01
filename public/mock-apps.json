@@ -1,0 +1,26 @@
+[
+  {
+    "credentials": [
+      {
+        "clientId": "GFExgof5Rlp8Crxu06lywQvHGqJ34JhzWyFy0JasjZLlhpzP",
+        "clientSecret": "nnYWuOweyZ3xkWpIRZb1GCaHloDNz21eL18UC1Nzkp9FdCA9Gde2tVHntpCjzCIX",
+        "products": ["AI-VertexGemini"]
+      }
+    ],
+    "description": "",
+    "id": "4f5e1a82-2ec7-4b30-ab1c-0d9aaca6c763",
+    "name": "Gemini App"
+  },
+  {
+    "credentials": [
+      {
+        "clientId": "XwZmRz8Of0I14FnQiYZoHzsNDQ4w9lUDlcYhB2TPibF07e3S",
+        "clientSecret": "YdpopLAFvHCTAm45d7kgu6OgRvCtfG0Gzhy8QPcGw7q90duqsXOboGccgC5eaWtE",
+        "products": ["Weather-API-v1"]
+      }
+    ],
+    "description": "",
+    "id": "727a8657-ddb7-4474-91d1-8616d0638f20",
+    "name": "Test App"
+  }
+]
