@@ -190,8 +190,8 @@
 </style>
 
 <script>
-let currentProduct = null;
-let currentUnsubscribedApps = [];
+var currentProduct = null;
+var currentUnsubscribedApps = [];
 
 window.viewInitializers['product-detail'] = async function(productId) {
   console.log("Loading product details for:", productId);

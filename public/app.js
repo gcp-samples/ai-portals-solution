@@ -441,8 +441,12 @@ class AppPortal {
   async handleRoute() {
     const hash = window.location.hash || "#home";
     const parts = hash.split("/");
-    const view = parts[0].substring(1);
+    let view = parts[0].substring(1);
     const param = parts[1]; // e.g. productId in #product/:id
+
+    if (view === "product") {
+      view = "product-detail";
+    }
 
     // Route guarding
     if ((view === "apps" || view === "analytics") && !this.user) {
