@@ -15,6 +15,7 @@ import (
 	"time"
 
 	firebase "firebase.google.com/go/v4"
+	"gopkg.in/yaml.v3"
 )
 
 type ApigeeCredential struct {
@@ -184,7 +185,7 @@ func processApigeeUserRegistration(email, portalId string) {
 	ctx := context.Background()
 
 	// Load portal
-	sfFile := filepath.Join(dataDir, portalId+".json")
+	sfFile := filepath.Join(dataDir, portalId+".yaml")
 	sfData, err := os.ReadFile(sfFile)
 	if err != nil {
 		log.Printf("processApigeeUserRegistration: failed to read portal %s: %v", portalId, err)
@@ -192,7 +193,7 @@ func processApigeeUserRegistration(email, portalId string) {
 	}
 
 	var sf Portal
-	if err := json.Unmarshal(sfData, &sf); err != nil {
+	if err := yaml.Unmarshal(sfData, &sf); err != nil {
 		log.Printf("processApigeeUserRegistration: failed to parse portal %s: %v", portalId, err)
 		return
 	}
@@ -200,7 +201,7 @@ func processApigeeUserRegistration(email, portalId string) {
 	// Collect unique Apigee organizations (project IDs)
 	apigeeOrgs := make(map[string]bool)
 	for _, pgConfig := range sf.ProductGroups {
-		pgFile := filepath.Join(productGroupsDir, pgConfig.ProductGroupId+".json")
+		pgFile := filepath.Join(productGroupsDir, pgConfig.ProductGroupId+".yaml")
 		pgData, err := os.ReadFile(pgFile)
 		if err != nil {
 			log.Printf("processApigeeUserRegistration: failed to read product group %s: %v", pgConfig.ProductGroupId, err)
@@ -208,13 +209,13 @@ func processApigeeUserRegistration(email, portalId string) {
 		}
 
 		var pg ProductGroup
-		if err := json.Unmarshal(pgData, &pg); err != nil {
+		if err := yaml.Unmarshal(pgData, &pg); err != nil {
 			continue
 		}
 
 		for _, source := range pg.Sources {
-			if source.Type == "apigee" && source.Name != "" {
-				apigeeOrgs[source.Name] = true
+			if source.Type == "apigee" && source.Project != "" {
+				apigeeOrgs[source.Project] = true
 			}
 		}
 	}
@@ -267,7 +268,7 @@ func portalHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Sanitize name
 	name = filepath.Base(filepath.Clean(name))
-	filePath := filepath.Join(dataDir, name+".json")
+	filePath := filepath.Join(dataDir, name+".yaml")
 
 	fileData, err := os.ReadFile(filePath)
 	if err != nil {
@@ -279,9 +280,13 @@ func portalHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(fileData)
+	var sf Portal
+	if err := yaml.Unmarshal(fileData, &sf); err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Invalid portal data"})
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, sf)
 }
 
 func productHandler(w http.ResponseWriter, r *http.Request) {
@@ -301,7 +306,7 @@ func productHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Sanitize name
 	name = filepath.Base(filepath.Clean(name))
-	filePath := filepath.Join(dataDir, name+".json")
+	filePath := filepath.Join(dataDir, name+".yaml")
 
 	fileData, err := os.ReadFile(filePath)
 	if err != nil {
@@ -314,7 +319,7 @@ func productHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var sf Portal
-	if err := json.Unmarshal(fileData, &sf); err != nil {
+	if err := yaml.Unmarshal(fileData, &sf); err != nil {
 		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Invalid portal data"})
 		return
 	}
@@ -322,7 +327,7 @@ func productHandler(w http.ResponseWriter, r *http.Request) {
 	var allProducts []Product
 	for _, pgConfig := range sf.ProductGroups {
 		// Read product group
-		pgFile := filepath.Join(productGroupsDir, pgConfig.ProductGroupId+".json")
+		pgFile := filepath.Join(productGroupsDir, pgConfig.ProductGroupId+".yaml")
 		pgData, err := os.ReadFile(pgFile)
 		if err != nil {
 			log.Printf("Failed to read product group %s: %v", pgConfig.ProductGroupId, err)
@@ -330,7 +335,7 @@ func productHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var pg ProductGroup
-		if err := json.Unmarshal(pgData, &pg); err != nil {
+		if err := yaml.Unmarshal(pgData, &pg); err != nil {
 			log.Printf("Failed to parse product group %s: %v", pgConfig.ProductGroupId, err)
 			continue
 		}
@@ -342,14 +347,14 @@ func productHandler(w http.ResponseWriter, r *http.Request) {
 			if source.Type == "vertex" {
 				// products, fetchErr = getVertexProducts(r.Context(), source.Name, source.Region)
 			} else if source.Type == "apigee" {
-				products, fetchErr = getApigeeProducts(r.Context(), source.Name, source.Region, true)
+				products, fetchErr = getApigeeProducts(r.Context(), source.Project, source.Region, true)
 			} else if source.Type == "manual" {
 				// Handle manual products if necessary
 				// Not fully implemented in getVertexProducts/getApigeeProducts yet
 			}
 
 			if fetchErr != nil {
-				log.Printf("Failed to fetch products for source %s: %v", source.Name, fetchErr)
+				log.Printf("Failed to fetch products for source %s: %v", source.Project, fetchErr)
 				continue
 			}
 
@@ -394,8 +399,30 @@ func productHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func productSpecHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
+	productId := r.PathValue("productId")
+	if productId == "" {
+		// Fallback just in case
+		parts := strings.Split(r.URL.Path, "/")
+		if len(parts) >= 4 {
+			productId = parts[3]
+		}
+	}
+
+	if productId != "" {
+		apigeeCacheMutex.Lock()
+		spec, ok := apigeeSpecCache[productId]
+		apigeeCacheMutex.Unlock()
+
+		if ok && spec != "" {
+			w.Header().Set("Content-Type", "application/yaml")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, spec)
+			return
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/yaml")
+	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, demoSpec)
 }
 
@@ -472,7 +499,7 @@ func userAppsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	// 1. Read portal to find Apigee organizations (project IDs)
-	portalPath := filepath.Join(dataDir, filepath.Base(filepath.Clean(portalId))+".json")
+	portalPath := filepath.Join(dataDir, filepath.Base(filepath.Clean(portalId))+".yaml")
 	sfData, err := os.ReadFile(portalPath)
 	if err != nil {
 		jsonResponse(w, http.StatusNotFound, map[string]string{"error": "portal not found"})
@@ -480,24 +507,24 @@ func userAppsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var sf Portal
-	if err := json.Unmarshal(sfData, &sf); err != nil {
+	if err := yaml.Unmarshal(sfData, &sf); err != nil {
 		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "invalid portal data"})
 		return
 	}
 
 	apigeeOrgs := make(map[string]bool)
 	for _, pgConfig := range sf.ProductGroups {
-		pgPath := filepath.Join(productGroupsDir, filepath.Base(filepath.Clean(pgConfig.ProductGroupId))+".json")
+		pgPath := filepath.Join(productGroupsDir, filepath.Base(filepath.Clean(pgConfig.ProductGroupId))+".yaml")
 		pgData, err := os.ReadFile(pgPath)
 		if err != nil {
 			continue
 		}
 
 		var pg ProductGroup
-		if err := json.Unmarshal(pgData, &pg); err == nil {
+		if err := yaml.Unmarshal(pgData, &pg); err == nil {
 			for _, source := range pg.Sources {
-				if source.Type == "apigee" && source.Name != "" {
-					apigeeOrgs[source.Name] = true
+				if source.Type == "apigee" && source.Project != "" {
+					apigeeOrgs[source.Project] = true
 				}
 			}
 		}
@@ -757,7 +784,7 @@ func userAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	// 1. Read portal to find Apigee organizations (project IDs)
-	portalPath := filepath.Join(dataDir, filepath.Base(filepath.Clean(portalId))+".json")
+	portalPath := filepath.Join(dataDir, filepath.Base(filepath.Clean(portalId))+".yaml")
 	sfData, err := os.ReadFile(portalPath)
 	if err != nil {
 		jsonResponse(w, http.StatusNotFound, map[string]string{"error": "portal not found"})
@@ -765,14 +792,14 @@ func userAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var sf Portal
-	if err := json.Unmarshal(sfData, &sf); err != nil {
+	if err := yaml.Unmarshal(sfData, &sf); err != nil {
 		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "invalid portal data"})
 		return
 	}
 
 	apigeeOrgs := make(map[string]bool)
 	for _, pgConfig := range sf.ProductGroups {
-		pgPath := filepath.Join(productGroupsDir, filepath.Base(filepath.Clean(pgConfig.ProductGroupId))+".json")
+		pgPath := filepath.Join(productGroupsDir, filepath.Base(filepath.Clean(pgConfig.ProductGroupId))+".yaml")
 		pgData, err := os.ReadFile(pgPath)
 		if err != nil {
 			log.Printf("Failed to read product group %s: %v", pgConfig.ProductGroupId, err)
@@ -780,14 +807,14 @@ func userAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var pg ProductGroup
-		if err := json.Unmarshal(pgData, &pg); err != nil {
+		if err := yaml.Unmarshal(pgData, &pg); err != nil {
 			log.Printf("Failed to parse product group %s: %v", pgConfig.ProductGroupId, err)
 			continue
 		}
 
 		for _, source := range pg.Sources {
-			if source.Type == "apigee" && source.Name != "" {
-				apigeeOrgs[source.Name] = true
+			if source.Type == "apigee" && source.Project != "" {
+				apigeeOrgs[source.Project] = true
 			}
 		}
 	}

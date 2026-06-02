@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"golang.org/x/oauth2/google"
+	"gopkg.in/yaml.v3"
 )
 
 const dataDir = "./data/portals"
@@ -27,6 +28,7 @@ const sessionsDir = "./data/sessions"
 
 var (
 	apigeeCache      = make(map[string]apigeeCacheEntry)
+	apigeeSpecCache  = make(map[string]string)
 	apigeeCacheMutex sync.Mutex
 )
 
@@ -141,6 +143,7 @@ func getApigeeProducts(ctx context.Context, projectId, region string, tryCache b
 	}
 
 	var results []Product
+	specsToCache := make(map[string]string)
 
 	for _, api := range apisResp.Apis {
 		parts := strings.Split(api.Name, "/")
@@ -213,7 +216,7 @@ func getApigeeProducts(ctx context.Context, projectId, region string, tryCache b
 							var contentsResp map[string]interface{}
 							if err := getGcpJson(client, contentsUrl, &contentsResp); err == nil {
 								if contents, ok := contentsResp["contents"].(string); ok {
-									versionProduct.SpecContents = contents
+									specsToCache[versionProduct.Id] = contents
 									break // Got a spec, stop looking for more specs for this version
 								}
 							}
@@ -291,11 +294,20 @@ func getApigeeProducts(ctx context.Context, projectId, region string, tryCache b
 		Timestamp: time.Now(),
 	}
 	apigeeCache[cacheKey] = entryToCache
+	for k, v := range specsToCache {
+		apigeeSpecCache[k] = v
+	}
 
 	if err := os.MkdirAll("./data/products", 0755); err == nil {
-		if fileData, err := json.MarshalIndent(entryToCache, "", "  "); err == nil {
-			fileName := fmt.Sprintf("./data/products/apigee_%s_%s.json", projectId, region)
+		if fileData, err := yaml.Marshal(entryToCache); err == nil {
+			fileName := fmt.Sprintf("./data/products/apigee_%s_%s.yaml", projectId, region)
 			os.WriteFile(fileName, fileData, 0644)
+		}
+		if len(specsToCache) > 0 {
+			if specData, err := yaml.Marshal(specsToCache); err == nil {
+				specFileName := fmt.Sprintf("./data/products/apigee_specs_%s_%s.yaml", projectId, region)
+				os.WriteFile(specFileName, specData, 0644)
+			}
 		}
 	}
 	apigeeCacheMutex.Unlock()
@@ -308,23 +320,45 @@ func main() {
 		apigeeCacheMutex.Lock()
 		loadedCount := 0
 		for _, file := range files {
-			if !file.IsDir() && strings.HasPrefix(file.Name(), "apigee_") && strings.HasSuffix(file.Name(), ".json") {
-				// Parse projectId and region from filename: apigee_{projectId}_{region}.json
-				nameParts := strings.Split(strings.TrimSuffix(strings.TrimPrefix(file.Name(), "apigee_"), ".json"), "_")
-				if len(nameParts) >= 2 {
-					// Handle cases where projectId might contain underscores by taking the last part as region
-					regionStr := nameParts[len(nameParts)-1]
-					projectIdStr := strings.Join(nameParts[:len(nameParts)-1], "_")
-					cacheKey := fmt.Sprintf("%s:%s", projectIdStr, regionStr)
+			if !file.IsDir() && strings.HasPrefix(file.Name(), "apigee_") && (strings.HasSuffix(file.Name(), ".yaml") || strings.HasSuffix(file.Name(), ".yml")) {
+				isYml := strings.HasSuffix(file.Name(), ".yml")
+				ext := ".yaml"
+				if isYml {
+					ext = ".yml"
+				}
+				if strings.HasPrefix(file.Name(), "apigee_specs_") {
+					nameParts := strings.Split(strings.TrimSuffix(strings.TrimPrefix(file.Name(), "apigee_specs_"), ext), "_")
+					if len(nameParts) >= 2 {
+						fileData, err := os.ReadFile(filepath.Join("./data/products", file.Name()))
+						if err == nil {
+							var specs map[string]string
+							if err := yaml.Unmarshal(fileData, &specs); err == nil {
+								for k, v := range specs {
+									apigeeSpecCache[k] = v
+								}
+							} else {
+								log.Printf("Failed to unmarshal apigee specs cache file %s: %v", file.Name(), err)
+							}
+						}
+					}
+				} else {
+					// Parse projectId and region from filename: apigee_{projectId}_{region}.yaml
+					nameParts := strings.Split(strings.TrimSuffix(strings.TrimPrefix(file.Name(), "apigee_"), ext), "_")
+					if len(nameParts) >= 2 {
+						// Handle cases where projectId might contain underscores by taking the last part as region
+						regionStr := nameParts[len(nameParts)-1]
+						projectIdStr := strings.Join(nameParts[:len(nameParts)-1], "_")
+						cacheKey := fmt.Sprintf("%s:%s", projectIdStr, regionStr)
 
-					fileData, err := os.ReadFile(filepath.Join("./data/products", file.Name()))
-					if err == nil {
-						var entry apigeeCacheEntry
-						if err := json.Unmarshal(fileData, &entry); err == nil {
-							apigeeCache[cacheKey] = entry
-							loadedCount++
-						} else {
-							log.Printf("Failed to unmarshal apigee cache file %s: %v", file.Name(), err)
+						fileData, err := os.ReadFile(filepath.Join("./data/products", file.Name()))
+						if err == nil {
+							var entry apigeeCacheEntry
+							if err := yaml.Unmarshal(fileData, &entry); err == nil {
+								apigeeCache[cacheKey] = entry
+								loadedCount++
+							} else {
+								log.Printf("Failed to unmarshal apigee cache file %s: %v", file.Name(), err)
+							}
 						}
 					}
 				}

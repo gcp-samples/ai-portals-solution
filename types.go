@@ -7,114 +7,112 @@ import (
 )
 
 type UserSessionData struct {
-	Email             string        `json:"email"`
-	Name              string        `json:"name"`
-	Picture           string        `json:"picture"`
-	AuthorizationCode string        `json:"authorization_code"`
-	Token             *oauth2.Token `json:"token"`
-	IDToken           string        `json:"id_token"`
+	Email             string        `json:"email" yaml:"email"`
+	Name              string        `json:"name" yaml:"name"`
+	Picture           string        `json:"picture" yaml:"picture"`
+	AuthorizationCode string        `json:"authorization_code" yaml:"authorization_code"`
+	Token             *oauth2.Token `json:"token" yaml:"token"`
+	IDToken           string        `json:"id_token" yaml:"id_token"`
 }
 
 type Product struct {
-	Id                 string   `json:"id"`
-	SourceId           string   `json:"sourceId,omitempty"`
-	ProductId          string   `json:"productId,omitempty"`
-	Name               string   `json:"name"`
-	DisplayName        string   `json:"displayName,omitempty"`
-	Description        string   `json:"description,omitempty"`
-	DisplayDescription string   `json:"displayDescription,omitempty"`
-	Endpoints          []string `json:"endpoints,omitempty"`
-	SpecContents       string   `json:"specContents,omitempty"`
-	Type               string   `json:"type,omitempty"`
-	AuthType           string   `json:"authType,omitempty"`
-	Style              string   `json:"style,omitempty"`
-	DisplayStyle       string   `json:"displayStyle,omitempty"`
-	Image              string   `json:"image,omitempty"`
-	Categories         []string `json:"categories"`
-	Tags               []string `json:"tags"`
+	Id                 string   `json:"id" yaml:"id"`
+	SourceId           string   `json:"sourceId,omitempty" yaml:"sourceId,omitempty"`
+	ProductId          string   `json:"productId,omitempty" yaml:"productId,omitempty"`
+	Name               string   `json:"name" yaml:"name"`
+	DisplayName        string   `json:"displayName,omitempty" yaml:"displayName,omitempty"`
+	Description        string   `json:"description,omitempty" yaml:"description,omitempty"`
+	DisplayDescription string   `json:"displayDescription,omitempty" yaml:"displayDescription,omitempty"`
+	Endpoints          []string `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
+	SpecContents       string   `json:"specContents,omitempty" yaml:"specContents,omitempty"`
+	Type               string   `json:"type,omitempty" yaml:"type,omitempty"`
+	AuthType           string   `json:"authType,omitempty" yaml:"authType,omitempty"`
+	Style              string   `json:"style,omitempty" yaml:"style,omitempty"`
+	DisplayStyle       string   `json:"displayStyle,omitempty" yaml:"displayStyle,omitempty"`
+	Image              string   `json:"image,omitempty" yaml:"image,omitempty"`
+	Categories         []string `json:"categories" yaml:"categories"`
+	Tags               []string `json:"tags" yaml:"tags"`
 }
 
 type SelectedProduct struct {
-	Id                 string   `json:"id"`
-	ProductId          string   `json:"productId,omitempty"`
-	DisplayName        string   `json:"displayName,omitempty"`
-	DisplayDescription string   `json:"displayDescription,omitempty"`
-	DisplayStyle       string   `json:"displayStyle,omitempty"`
-	Image              string   `json:"image,omitempty"`
-	Categories         []string `json:"categories"`
-	Tags               []string `json:"tags"`
+	Id                 string   `json:"id" yaml:"id"`
+	ProductId          string   `json:"productId,omitempty" yaml:"productId,omitempty"`
+	DisplayName        string   `json:"displayName,omitempty" yaml:"displayName,omitempty"`
+	DisplayDescription string   `json:"displayDescription,omitempty" yaml:"displayDescription,omitempty"`
+	DisplayStyle       string   `json:"displayStyle,omitempty" yaml:"displayStyle,omitempty"`
+	Image              string   `json:"image,omitempty" yaml:"image,omitempty"`
+	Categories         []string `json:"categories" yaml:"categories"`
+	Tags               []string `json:"tags" yaml:"tags"`
 }
 
 type Source struct {
-	Name              string            `json:"name"`
-	Type              string            `json:"type"`
-	Region            string            `json:"region"`
-	AllProducts       bool              `json:"allProducts"`
-	SelectedProducts  []SelectedProduct `json:"selectedProducts"`
-	AllUsers          bool              `json:"allUsers"`
-	SelectedAudiences []string          `json:"selectedAudiences"`
+	Project           string            `json:"project" yaml:"project"`
+	Type              string            `json:"type" yaml:"type"`
+	Region            string            `json:"region" yaml:"region"`
+	AllProducts       bool              `json:"allProducts" yaml:"allProducts"`
+	SelectedProducts  []SelectedProduct `json:"selectedProducts" yaml:"selectedProducts"`
+	AllUsers          bool              `json:"allUsers" yaml:"allUsers"`
+	SelectedAudiences []string          `json:"selectedAudiences" yaml:"selectedAudiences"`
 }
 
 type Qualifier struct {
-	Type  string `json:"type"`
-	Value string `json:"value"`
+	Type  string `json:"type" yaml:"type"`
+	Value string `json:"value" yaml:"value"`
 }
 
 type Audience struct {
-	Id          string      `json:"id"`
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	Qualifiers  []Qualifier `json:"qualifiers"`
+	Id          string      `json:"id" yaml:"id"`
+	Name        string      `json:"name" yaml:"name"`
+	Description string      `json:"description" yaml:"description"`
+	Qualifiers  []Qualifier `json:"qualifiers" yaml:"qualifiers"`
 }
 
 type ProductGroup struct {
-	Id       string   `json:"id"`
-	Name     string   `json:"name"`
-	Taxonomy string   `json:"taxonomy"`
-	Sources  []Source `json:"sources"`
+	Id       string   `json:"id" yaml:"id"`
+	Name     string   `json:"name" yaml:"name"`
+	Taxonomy string   `json:"taxonomy" yaml:"taxonomy"`
+	Sources  []Source `json:"sources" yaml:"sources"`
 }
 
 type ProductGroupConfig struct {
-	ProductGroupId    string   `json:"productGroupId"`
-	AllUsers          bool     `json:"allUsers"`
-	SelectedAudiences []string `json:"selectedAudiences"`
+	ProductGroupId    string   `json:"productGroupId" yaml:"productGroupId"`
+	AllUsers          bool     `json:"allUsers" yaml:"allUsers"`
+	SelectedAudiences []string `json:"selectedAudiences" yaml:"selectedAudiences"`
 }
 
 type Portal struct {
-	Id            string               `json:"id"`
-	Name          string               `json:"name"`
-	AuthType      string               `json:"authType"`
-	AuthApiKey    *string              `json:"authApiKey"`
-	AuthDomain    *string              `json:"authDomain"`
-	ThemeId       string               `json:"themeId"`
-	SupportMcp    bool                 `json:"supportMcp"`
-	ProductGroups []ProductGroupConfig `json:"productGroups"`
+	Id            string               `json:"id" yaml:"id"`
+	Name          string               `json:"name" yaml:"name"`
+	AuthType      string               `json:"authType" yaml:"authType"`
+	AuthApiKey    *string              `json:"authApiKey" yaml:"authApiKey"`
+	AuthDomain    *string              `json:"authDomain" yaml:"authDomain"`
+	ProductGroups []ProductGroupConfig `json:"productGroups" yaml:"productGroups"`
 }
 
 type Category struct {
-	Id          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Id          string `json:"id" yaml:"id"`
+	Name        string `json:"name" yaml:"name"`
+	Description string `json:"description" yaml:"description"`
 }
 
 type Tag struct {
-	Id          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Id          string `json:"id" yaml:"id"`
+	Name        string `json:"name" yaml:"name"`
+	Description string `json:"description" yaml:"description"`
 }
 
 type Taxonomy struct {
-	Id         string   `json:"id"`
-	Name       string   `json:"name"`
-	Categories []string `json:"categories"`
-	Tags       []string `json:"tags"`
+	Id         string   `json:"id" yaml:"id"`
+	Name       string   `json:"name" yaml:"name"`
+	Categories []string `json:"categories" yaml:"categories"`
+	Tags       []string `json:"tags" yaml:"tags"`
 }
 
 type Theme struct {
-	Id         string   `json:"id"`
-	Name       string   `json:"name"`
-	GithubRepo string   `json:"githubRepo"`
-	Images     []string `json:"images"`
+	Id         string   `json:"id" yaml:"id"`
+	Name       string   `json:"name" yaml:"name"`
+	GithubRepo string   `json:"githubRepo" yaml:"githubRepo"`
+	Images     []string `json:"images" yaml:"images"`
 }
 
 type apigeeCacheEntry struct {
@@ -123,15 +121,15 @@ type apigeeCacheEntry struct {
 }
 
 type Credential struct {
-	ClientId     string   `json:"clientId"`
-	ClientSecret string   `json:"clientSecret"`
-	Products     []string `json:"products"`
+	ClientId     string   `json:"clientId" yaml:"clientId"`
+	ClientSecret string   `json:"clientSecret" yaml:"clientSecret"`
+	Products     []string `json:"products" yaml:"products"`
 }
 
 type App struct {
-	Id          string       `json:"id"`
-	ProjectId   string       `json:"projectId,omitempty"`
-	Name        string       `json:"name"`
-	Description string       `json:"description"`
-	Credentials []Credential `json:"credentials"`
+	Id          string       `json:"id" yaml:"id"`
+	ProjectId   string       `json:"projectId,omitempty" yaml:"projectId,omitempty"`
+	Name        string       `json:"name" yaml:"name"`
+	Description string       `json:"description" yaml:"description"`
+	Credentials []Credential `json:"credentials" yaml:"credentials"`
 }
