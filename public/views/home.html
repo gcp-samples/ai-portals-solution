@@ -228,7 +228,7 @@ body.light .gradient-text {
   100% { transform: rotate(360deg); }
 }
 
-.code-window {
+.code-window.panel {
   position: relative;
   z-index: 5;
   width: 100%;
@@ -236,14 +236,17 @@ body.light .gradient-text {
   border-radius: 0.75rem;
   overflow: hidden;
   box-shadow: var(--shadow-2xl);
+  padding: 0;
+  background: #0b0f19;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .window-header {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.4);
   padding: 0.75rem 1rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 .dot {
   width: 10px;
@@ -256,13 +259,14 @@ body.light .gradient-text {
 .dot.green { background: #10b981; }
 .window-title {
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: #94a3b8;
   font-family: monospace;
   margin-left: 0.5rem;
 }
 .window-body {
   padding: 1.5rem;
-  background: rgba(15, 23, 42, 0.4);
+  background: #0b0f19;
+  color: #f8fafc;
   font-family: 'Courier New', Courier, monospace;
   font-size: 0.875rem;
   line-height: 1.6;

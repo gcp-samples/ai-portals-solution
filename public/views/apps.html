@@ -276,6 +276,21 @@ window.viewInitializers['apps'] = async function() {
 };
 
 async function loadUserApplications() {
+  const cacheKey = `prism_apps_cache_${app.user ? app.user.email : 'guest'}`;
+  const cachedAppsRaw = localStorage.getItem(cacheKey);
+  let hasCache = false;
+
+  if (cachedAppsRaw) {
+    try {
+      const cachedApps = JSON.parse(cachedAppsRaw);
+      app.apps = cachedApps;
+      renderUserApplications();
+      hasCache = true;
+    } catch (e) {
+      console.error("Error parsing cached apps data", e);
+    }
+  }
+
   try {
     let userApps = [];
     if (CONFIG.demoMode) {
@@ -293,11 +308,14 @@ async function loadUserApplications() {
       userApps = await res.json();
     }
     
+    localStorage.setItem(cacheKey, JSON.stringify(userApps));
     app.apps = userApps;
     renderUserApplications();
   } catch (err) {
     console.error(err);
-    app.showToast("Failed to load user applications", "error");
+    if (!hasCache) {
+      app.showToast("Failed to load user applications", "error");
+    }
   }
 }
 

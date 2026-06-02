@@ -18,7 +18,7 @@
   <div class="filter-bar panel">
     <div class="search-box">
       <i data-lucide="search" class="search-icon"></i>
-      <input type="text" id="catalog-search" placeholder="Search APIs by name, tags, description..." oninput="filterCatalogProducts()" autocomplete="off">
+      <input type="text" id="catalog-search" class="input-control" placeholder="Search APIs by name, tags, description..." oninput="filterCatalogProducts()" autocomplete="off">
     </div>
     
     <div class="sorting-box">
@@ -122,7 +122,7 @@
 .select-control {
   padding: 0.5rem 2rem 0.5rem 1rem;
   width: auto;
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: var(--input-bg);
   cursor: pointer;
 }
 

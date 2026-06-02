@@ -12,6 +12,7 @@
   --text-primary: #f9fafb;
   --text-secondary: #9ca3af;
   --text-muted: #6b7280;
+  --input-bg: rgba(0, 0, 0, 0.25);
   
   --primary: #6366f1;
   --primary-hover: #4f46e5;
@@ -53,6 +54,7 @@ body.light {
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #64748b;
+  --input-bg: #ffffff;
   
   --primary: #4f46e5;
   --primary-hover: #3730a3;
@@ -441,7 +443,8 @@ dialog::backdrop {
 }
 .input-control {
   width: 100%;
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--input-bg);
+  color: var(--text-primary);
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
   padding: 0.625rem 0.875rem;
@@ -451,6 +454,13 @@ dialog::backdrop {
 .input-control:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px var(--primary-light);
+}
+.input-control::placeholder {
+  color: var(--text-muted);
+}
+select.input-control option {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
 }
 .auth-divider {
   display: flex;

@@ -131,7 +131,7 @@ class AppPortal {
 
       if (profileBtn) {
         dropdown.classList.toggle("show");
-      } else if (dropdown && !e.target.closest(".user-menu")) {
+      } else if (dropdown && (!e.target.closest(".user-menu") || e.target.closest(".dropdown-item"))) {
         dropdown.classList.remove("show");
       }
     });
