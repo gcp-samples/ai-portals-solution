@@ -97,6 +97,17 @@
 
     <!-- Sign In & Register Form -->
     <form id="auth-form" onsubmit="app.handleAuthSubmit(event)">
+      <div class="auth-form-group" id="register-names" style="display:none; gap:1rem;">
+        <div style="flex:1;">
+          <label for="auth-first-name">First Name</label>
+          <input type="text" id="auth-first-name" class="input-control" placeholder="John">
+        </div>
+        <div style="flex:1;">
+          <label for="auth-last-name">Last Name</label>
+          <input type="text" id="auth-last-name" class="input-control" placeholder="Doe">
+        </div>
+      </div>
+
       <div class="auth-form-group">
         <label for="auth-email">Email Address</label>
         <input type="email" id="auth-email" class="input-control" placeholder="developer@company.com" required autocomplete="username">

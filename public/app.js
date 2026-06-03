@@ -131,7 +131,10 @@ class AppPortal {
 
       if (profileBtn) {
         dropdown.classList.toggle("show");
-      } else if (dropdown && (!e.target.closest(".user-menu") || e.target.closest(".dropdown-item"))) {
+      } else if (
+        dropdown &&
+        (!e.target.closest(".user-menu") || e.target.closest(".dropdown-item"))
+      ) {
         dropdown.classList.remove("show");
       }
     });
@@ -200,11 +203,26 @@ class AppPortal {
         if (firebaseUser) {
           try {
             const idToken = await firebaseUser.getIdToken();
-            await this.liveLogin(firebaseUser.email, idToken);
+            let firstName = "";
+            let lastName = "";
+            if (this.registrationData) {
+              firstName = this.registrationData.firstName;
+              lastName = this.registrationData.lastName;
+              this.registrationData = null; // Clear to avoid reuse
+            } else if (firebaseUser.displayName) {
+              const nameParts = firebaseUser.displayName.split(" ");
+              firstName = nameParts[0] || "";
+              lastName = nameParts.slice(1).join(" ") || "";
+            }
+
+            await this.liveLogin(firebaseUser.email, idToken, firstName, lastName);
 
             this.setUser({
               email: firebaseUser.email,
-              displayName: firebaseUser.displayName || firebaseUser.email.split("@")[0],
+              displayName:
+                firebaseUser.displayName ||
+                `${firstName} ${lastName}`.trim() ||
+                firebaseUser.email.split("@")[0],
               photoURL:
                 firebaseUser.photoURL ||
                 "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
@@ -224,14 +242,21 @@ class AppPortal {
     }
   }
 
-  async liveLogin(email, token) {
+  async liveLogin(email, token, firstName = "", lastName = "") {
     const url = `${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${email}/login`;
+    const payload = {};
+    if (firstName) payload.firstName = firstName;
+    if (lastName) payload.lastName = lastName;
+    payload.email = email;
+    payload.userName = email;
+
     const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
@@ -264,6 +289,15 @@ class AppPortal {
     document.getElementById("btn-auth-submit").textContent = isLogin
       ? "Sign In"
       : "Register Account";
+
+    const namesGroup = document.getElementById("register-names");
+    if (namesGroup) {
+      namesGroup.style.display = isLogin ? "none" : "flex";
+      const firstNameInput = document.getElementById("auth-first-name");
+      const lastNameInput = document.getElementById("auth-last-name");
+      if (firstNameInput) firstNameInput.required = !isLogin;
+      if (lastNameInput) lastNameInput.required = !isLogin;
+    }
   }
 
   async handleAuthSubmit(event) {
@@ -299,7 +333,23 @@ class AppPortal {
         await firebase.auth().signInWithEmailAndPassword(email, password);
         this.showToast("Successfully signed in!", "success");
       } else {
-        await firebase.auth().createUserWithEmailAndPassword(email, password);
+        const firstName = document.getElementById("auth-first-name")
+          ? document.getElementById("auth-first-name").value.trim()
+          : "";
+        const lastName = document.getElementById("auth-last-name")
+          ? document.getElementById("auth-last-name").value.trim()
+          : "";
+        this.registrationData = { firstName, lastName };
+
+        const userCredential = await firebase
+          .auth()
+          .createUserWithEmailAndPassword(email, password);
+        if (userCredential.user) {
+          const displayName = `${firstName} ${lastName}`.trim();
+          await userCredential.user.updateProfile({
+            displayName: displayName,
+          });
+        }
         this.showToast("Successfully registered developer account!", "success");
       }
       this.closeAuthModal();

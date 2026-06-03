@@ -176,12 +176,20 @@ func userLoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go processApigeeUserRegistration(email, portalId)
+	var payload struct {
+		FirstName string `json:"firstName"`
+		LastName  string `json:"lastName"`
+	}
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&payload)
+	}
+
+	go processApigeeUserRegistration(email, portalId, payload.FirstName, payload.LastName)
 
 	jsonResponse(w, http.StatusOK, map[string]string{"status": "success"})
 }
 
-func processApigeeUserRegistration(email, portalId string) {
+func processApigeeUserRegistration(email, portalId, firstName, lastName string) {
 	ctx := context.Background()
 
 	// Load portal
@@ -220,15 +228,20 @@ func processApigeeUserRegistration(email, portalId string) {
 		}
 	}
 
-	firstName := email
-	if idx := strings.Index(email, "@"); idx != -1 {
-		firstName = email[:idx]
+	if firstName == "" {
+		firstName = email
+		if idx := strings.Index(email, "@"); idx != -1 {
+			firstName = email[:idx]
+		}
+	}
+	if lastName == "" {
+		lastName = "User"
 	}
 
 	devPayload := map[string]string{
 		"email":     email,
 		"firstName": firstName,
-		"lastName":  "User",
+		"lastName":  lastName,
 		"userName":  firstName,
 	}
 
