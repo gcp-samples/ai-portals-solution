@@ -402,7 +402,7 @@ window.viewInitializers['home'] = async function() {
   const heroBtnLogin = document.getElementById('hero-btn-login');
   if (app.user) {
     if (heroBtnLogin) {
-      heroBtnLogin.textContent = "Go to My Subscriptions";
+      heroBtnLogin.textContent = "Go to My Apps";
       heroBtnLogin.onclick = () => app.navigate('apps');
     }
   }

@@ -1,15 +1,22 @@
 <div class="analytics-container">
   <div class="analytics-header">
     <div>
-      <h1 style="font-size:2rem; margin-bottom:0.5rem;">Usage & Token Analytics</h1>
-      <p style="color:var(--text-secondary);">Real-time tracking of API invocation rates, LLM prompt/response token workloads, and cost distributions.</p>
+      <h1 style="font-size: 2rem; margin-bottom: 0.5rem">Usage & Token Analytics</h1>
+      <p style="color: var(--text-secondary)">
+        Real-time tracking of API invocation rates, LLM prompt/response token workloads, and cost
+        distributions.
+      </p>
     </div>
-    
+
     <!-- Controls/Filters -->
     <div class="analytics-filters panel">
       <div class="filter-group">
         <label for="filter-app">Application:</label>
-        <select id="filter-app" class="input-control select-control" onchange="processAndRenderAnalytics()">
+        <select
+          id="filter-app"
+          class="input-control select-control"
+          onchange="processAndRenderAnalytics()"
+        >
           <option value="all">All Applications</option>
           <!-- Apps filled dynamically -->
         </select>
@@ -17,7 +24,11 @@
 
       <div class="filter-group">
         <label for="filter-product">API Product:</label>
-        <select id="filter-product" class="input-control select-control" onchange="processAndRenderAnalytics()">
+        <select
+          id="filter-product"
+          class="input-control select-control"
+          onchange="processAndRenderAnalytics()"
+        >
           <option value="all">All Products</option>
           <!-- Products filled dynamically -->
         </select>
@@ -26,720 +37,783 @@
   </div>
 
   <!-- Loading Placeholder -->
-  <div id="analytics-loading-placeholder" class="panel" style="text-align:center; padding: 6rem 2rem; margin-top: 2rem;">
-    <div style="border: 3px solid var(--border-color); border-top-color: var(--primary); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin:0 auto 1.25rem auto;"></div>
-    <p style="color:var(--text-secondary); font-size: 1.05rem;">Loading analytics statistics...</p>
+  <div
+    id="analytics-loading-placeholder"
+    class="panel"
+    style="text-align: center; padding: 6rem 2rem; margin-top: 2rem"
+  >
+    <div
+      style="
+        border: 3px solid var(--border-color);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1.25rem auto;
+      "
+    ></div>
+    <p style="color: var(--text-secondary); font-size: 1.05rem">Loading analytics statistics...</p>
   </div>
 
-  <div id="analytics-main-content" style="display: none;">
+  <div id="analytics-main-content" style="display: none">
     <!-- KPI Cards -->
     <div class="kpi-grid">
-    <div class="kpi-card panel">
-      <div class="kpi-icon-box" style="background: rgba(99, 102, 241, 0.15); color: #6366f1;">
-        <i data-lucide="activity" style="width:1.5rem; height:1.5rem;"></i>
+      <div class="kpi-card panel">
+        <div class="kpi-icon-box" style="background: rgba(99, 102, 241, 0.15); color: #6366f1">
+          <i data-lucide="activity" style="width: 1.5rem; height: 1.5rem"></i>
+        </div>
+        <div>
+          <span class="kpi-label">Total API Requests</span>
+          <h2 class="kpi-value-text" id="kpi-requests">0</h2>
+          <span class="kpi-trend success"
+            ><i
+              data-lucide="trending-up"
+              style="
+                width: 0.875rem;
+                height: 0.875rem;
+                display: inline-block;
+                vertical-align: middle;
+              "
+            ></i>
+            +12.4% vs last period</span
+          >
+        </div>
       </div>
-      <div>
-        <span class="kpi-label">Total API Requests</span>
-        <h2 class="kpi-value-text" id="kpi-requests">0</h2>
-        <span class="kpi-trend success"><i data-lucide="trending-up" style="width:0.875rem; height:0.875rem; display:inline-block; vertical-align:middle;"></i> +12.4% vs last period</span>
+
+      <div class="kpi-card panel">
+        <div class="kpi-icon-box" style="background: rgba(16, 185, 129, 0.15); color: #10b981">
+          <i data-lucide="database" style="width: 1.5rem; height: 1.5rem"></i>
+        </div>
+        <div>
+          <span class="kpi-label">Total LLM Tokens</span>
+          <h2 class="kpi-value-text" id="kpi-tokens">0</h2>
+          <span class="kpi-trend success"
+            ><i
+              data-lucide="trending-up"
+              style="
+                width: 0.875rem;
+                height: 0.875rem;
+                display: inline-block;
+                vertical-align: middle;
+              "
+            ></i>
+            +8.1% vs last period</span
+          >
+        </div>
+      </div>
+
+      <div class="kpi-card panel">
+        <div class="kpi-icon-box" style="background: rgba(6, 182, 212, 0.15); color: #06b6d4">
+          <i data-lucide="sparkles" style="width: 1.5rem; height: 1.5rem"></i>
+        </div>
+        <div>
+          <span class="kpi-label">Avg Token Efficiency</span>
+          <h2 class="kpi-value-text" id="kpi-efficiency">0%</h2>
+          <span class="kpi-sub-text">Prompt / Response Ratio</span>
+        </div>
       </div>
     </div>
 
-    <div class="kpi-card panel">
-      <div class="kpi-icon-box" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
-        <i data-lucide="database" style="width:1.5rem; height:1.5rem;"></i>
+    <!-- Graphs Layout -->
+    <div class="charts-layout">
+      <!-- Big Chart: Call Volume -->
+      <div class="panel chart-card full-width-chart">
+        <h3>API Invocations Over Time</h3>
+        <div class="chart-container-box">
+          <canvas id="chart-volume"></canvas>
+        </div>
       </div>
-      <div>
-        <span class="kpi-label">Total LLM Tokens</span>
-        <h2 class="kpi-value-text" id="kpi-tokens">0</h2>
-        <span class="kpi-trend success"><i data-lucide="trending-up" style="width:0.875rem; height:0.875rem; display:inline-block; vertical-align:middle;"></i> +8.1% vs last period</span>
+
+      <!-- Small Chart 1: Token breakdown -->
+      <div class="panel chart-card">
+        <h3>Prompt vs Response Workloads</h3>
+        <div class="chart-container-box">
+          <canvas id="chart-tokens"></canvas>
+        </div>
+      </div>
+
+      <!-- Small Chart 2: API Dist -->
+      <div class="panel chart-card">
+        <h3>Distribution by API Product</h3>
+        <div class="chart-container-box">
+          <canvas id="chart-products"></canvas>
+        </div>
       </div>
     </div>
 
-    <div class="kpi-card panel">
-      <div class="kpi-icon-box" style="background: rgba(6, 182, 212, 0.15); color: #06b6d4;">
-        <i data-lucide="sparkles" style="width:1.5rem; height:1.5rem;"></i>
-      </div>
-      <div>
-        <span class="kpi-label">Avg Token Efficiency</span>
-        <h2 class="kpi-value-text" id="kpi-efficiency">0%</h2>
-        <span class="kpi-sub-text">Prompt / Response Ratio</span>
+    <!-- Table summary list -->
+    <div class="panel explorer-table-card" style="margin-top: 2rem">
+      <h3 style="margin-bottom: 1.25rem">Analytics Explorer Summary</h3>
+      <div style="overflow-x: auto">
+        <table class="analytics-table">
+          <thead>
+            <tr>
+              <th>API Product</th>
+              <th>Style/Protocol</th>
+              <th>Total Requests</th>
+              <th>Prompt Tokens</th>
+              <th>Response Tokens</th>
+              <th>Total Tokens</th>
+            </tr>
+          </thead>
+          <tbody id="analytics-table-body">
+            <tr>
+              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem">
+                No data loaded
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
-
-  <!-- Graphs Layout -->
-  <div class="charts-layout">
-    <!-- Big Chart: Call Volume -->
-    <div class="panel chart-card full-width-chart">
-      <h3>API Invocations Over Time</h3>
-      <div class="chart-container-box">
-        <canvas id="chart-volume"></canvas>
-      </div>
-    </div>
-
-    <!-- Small Chart 1: Token breakdown -->
-    <div class="panel chart-card">
-      <h3>Prompt vs Response Workloads</h3>
-      <div class="chart-container-box">
-        <canvas id="chart-tokens"></canvas>
-      </div>
-    </div>
-
-    <!-- Small Chart 2: API Dist -->
-    <div class="panel chart-card">
-      <h3>Distribution by API Product</h3>
-      <div class="chart-container-box">
-        <canvas id="chart-products"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <!-- Table summary list -->
-  <div class="panel explorer-table-card" style="margin-top:2rem;">
-    <h3 style="margin-bottom:1.25rem;">Analytics Explorer Summary</h3>
-    <div style="overflow-x:auto;">
-      <table class="analytics-table">
-        <thead>
-          <tr>
-            <th>API Product</th>
-            <th>Style/Protocol</th>
-            <th>Total Requests</th>
-            <th>Prompt Tokens</th>
-            <th>Response Tokens</th>
-            <th>Total Tokens</th>
-          </tr>
-        </thead>
-        <tbody id="analytics-table-body">
-          <tr>
-            <td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">No data loaded</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-  </div> <!-- End of analytics-main-content -->
-</div> <!-- End of analytics-container -->
+  <!-- End of analytics-main-content -->
+</div>
+<!-- End of analytics-container -->
 
 <style>
-.analytics-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 2rem;
-  margin-bottom: 2.5rem;
-}
-@media (max-width: 968px) {
   .analytics-header {
-    flex-direction: column;
-    align-items: flex-start;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 2rem;
+    margin-bottom: 2.5rem;
   }
-}
+  @media (max-width: 968px) {
+    .analytics-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
 
-.analytics-filters {
-  display: flex;
-  gap: 1.25rem;
-  padding: 0.75rem 1.25rem;
-  align-items: center;
-}
-@media (max-width: 768px) {
   .analytics-filters {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
+    display: flex;
+    gap: 1.25rem;
+    padding: 0.75rem 1.25rem;
+    align-items: center;
   }
-}
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.filter-group label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
+  @media (max-width: 768px) {
+    .analytics-filters {
+      width: 100%;
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .filter-group label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
 
-/* KPI Grid */
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2.5rem;
-}
-.kpi-card {
-  padding: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-.kpi-icon-box {
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.kpi-label {
-  font-size: 0.825rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-}
-.kpi-value-text {
-  font-size: 2.25rem;
-  font-weight: 800;
-  margin: 0.125rem 0;
-}
-.kpi-trend {
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-.kpi-trend.success { color: var(--success); }
-.kpi-sub-text {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
+  /* KPI Grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+  .kpi-card {
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+  .kpi-icon-box {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .kpi-label {
+    font-size: 0.825rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+  .kpi-value-text {
+    font-size: 2.25rem;
+    font-weight: 800;
+    margin: 0.125rem 0;
+  }
+  .kpi-trend {
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .kpi-trend.success {
+    color: var(--success);
+  }
+  .kpi-sub-text {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
 
-/* Charts layout */
-.charts-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-}
-.full-width-chart {
-  grid-column: 1 / -1;
-}
-@media (max-width: 968px) {
+  /* Charts layout */
   .charts-layout {
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
   }
-}
-.chart-card {
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-.chart-card h3 {
-  font-size: 1.125rem;
-}
-.chart-container-box {
-  position: relative;
-  height: 320px;
-  width: 100%;
-}
+  .full-width-chart {
+    grid-column: 1 / -1;
+  }
+  @media (max-width: 968px) {
+    .charts-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+  .chart-card {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  .chart-card h3 {
+    font-size: 1.125rem;
+  }
+  .chart-container-box {
+    position: relative;
+    height: 320px;
+    width: 100%;
+  }
 
-/* Table */
-.analytics-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-.analytics-table th, .analytics-table td {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border-color);
-}
-.analytics-table th {
-  font-weight: 700;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  background: rgba(0, 0, 0, 0.1);
-}
-.analytics-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.01);
-}
-body.light .analytics-table tbody tr:hover {
-  background: rgba(0, 0, 0, 0.01);
-}
+  /* Table */
+  .analytics-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+  }
+  .analytics-table th,
+  .analytics-table td {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .analytics-table th {
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    background: rgba(0, 0, 0, 0.1);
+  }
+  .analytics-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.01);
+  }
+  body.light .analytics-table tbody tr:hover {
+    background: rgba(0, 0, 0, 0.01);
+  }
 </style>
 
 <script>
-var rawAnalyticsData = null;
-var volumeChartInstance = null;
-var tokenChartInstance = null;
-var productChartInstance = null;
+  var rawAnalyticsData = null;
+  var volumeChartInstance = null;
+  var tokenChartInstance = null;
+  var productChartInstance = null;
 
-window.viewInitializers['analytics'] = async function() {
-  console.log("Analytics loading...");
-  await fetchAnalyticsStats();
-};
+  window.viewInitializers["analytics"] = async function () {
+    console.log("Analytics loading...");
+    await fetchAnalyticsStats();
+  };
 
-async function fetchAnalyticsStats() {
-  const loader = document.getElementById('analytics-loading-placeholder');
-  const mainContent = document.getElementById('analytics-main-content');
-  
-  const cacheKey = `prism_analytics_cache_${app.user ? app.user.email : 'guest'}`;
-  const cachedAnalyticsRaw = localStorage.getItem(cacheKey);
-  let hasCache = false;
+  async function fetchAnalyticsStats() {
+    const loader = document.getElementById("analytics-loading-placeholder");
+    const mainContent = document.getElementById("analytics-main-content");
 
-  if (cachedAnalyticsRaw) {
+    const cacheKey = `prism_analytics_cache_${app.user ? app.user.email : "guest"}`;
+    const cachedAnalyticsRaw = localStorage.getItem(cacheKey);
+    let hasCache = false;
+
+    if (cachedAnalyticsRaw) {
+      try {
+        const cachedStats = JSON.parse(cachedAnalyticsRaw);
+        rawAnalyticsData = cachedStats;
+        populateFilterSelectors();
+        processAndRenderAnalytics();
+
+        if (loader) loader.style.display = "none";
+        if (mainContent) mainContent.style.display = "block";
+        hasCache = true;
+      } catch (e) {
+        console.error("Error parsing cached analytics data", e);
+      }
+    }
+
+    if (!hasCache) {
+      if (loader) loader.style.display = "block";
+      if (mainContent) mainContent.style.display = "none";
+    }
+
     try {
-      const cachedStats = JSON.parse(cachedAnalyticsRaw);
-      rawAnalyticsData = cachedStats;
+      let stats;
+      if (CONFIG.demoMode) {
+        const res = await fetch("/mock-analytics.json");
+        stats = await res.json();
+      } else {
+        const res = await app.makeRequest(
+          `${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${app.user.email}/analytics`,
+        );
+        if (!res.ok) throw new Error();
+        stats = await res.json();
+      }
+
+      rawAnalyticsData = stats;
+      localStorage.setItem(cacheKey, JSON.stringify(stats));
+
       populateFilterSelectors();
       processAndRenderAnalytics();
-      
-      if (loader) loader.style.display = 'none';
-      if (mainContent) mainContent.style.display = 'block';
-      hasCache = true;
-    } catch (e) {
-      console.error("Error parsing cached analytics data", e);
+
+      if (loader) loader.style.display = "none";
+      if (mainContent) mainContent.style.display = "block";
+    } catch (err) {
+      console.error(err);
+      if (!hasCache) {
+        app.showToast("Failed to fetch analytics metrics", "error");
+        if (loader) loader.style.display = "none";
+      }
     }
   }
 
-  if (!hasCache) {
-    if (loader) loader.style.display = 'block';
-    if (mainContent) mainContent.style.display = 'none';
-  }
+  function populateFilterSelectors() {
+    const appSelect = document.getElementById("filter-app");
+    const productSelect = document.getElementById("filter-product");
 
-  try {
-    let stats;
-    if (CONFIG.demoMode) {
-      const res = await fetch('/mock-analytics.json');
-      stats = await res.json();
-    } else {
-      const res = await app.makeRequest(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${app.user.email}/analytics`);
-      if (!res.ok) throw new Error();
-      stats = await res.json();
+    if (!appSelect || !productSelect) return;
+
+    // console.log(rawAnalyticsData);
+
+    // Clear dynamic options
+    appSelect.innerHTML = `<option value="all">All Applications</option>`;
+    productSelect.innerHTML = `<option value="all">All Products</option>`;
+
+    // Find distinct apps
+    const appNames = new Set();
+    if (rawAnalyticsData.app) {
+      rawAnalyticsData.app.forEach((entry) => {
+        if (entry.environments) {
+          entry.environments.forEach((env) => {
+            if (env.dimensions) {
+              env.dimensions.forEach((dim) => {
+                if (dim.individualNames) {
+                  dim.individualNames.forEach((name) => appNames.add(name));
+                }
+              });
+            }
+          });
+        }
+      });
     }
-    
-    rawAnalyticsData = stats;
-    localStorage.setItem(cacheKey, JSON.stringify(stats));
-    
-    populateFilterSelectors();
-    processAndRenderAnalytics();
 
-    if (loader) loader.style.display = 'none';
-    if (mainContent) mainContent.style.display = 'block';
-  } catch (err) {
-    console.error(err);
-    if (!hasCache) {
-      app.showToast("Failed to fetch analytics metrics", "error");
-      if (loader) loader.style.display = 'none';
+    appNames.forEach((name) => {
+      // Add nice spaces for visual names if appropriate
+      const friendlyName = name.replace(/([A-Z])/g, " $1").trim();
+      appSelect.innerHTML += `<option value="${name}">${friendlyName}</option>`;
+    });
+
+    // Find distinct products
+    const productNames = new Set();
+    if (rawAnalyticsData.product) {
+      rawAnalyticsData.product.forEach((entry) => {
+        if (entry.environments) {
+          entry.environments.forEach((env) => {
+            if (env.dimensions) {
+              env.dimensions.forEach((dim) => {
+                if (dim.individualNames) {
+                  dim.individualNames.forEach((name) => productNames.add(name));
+                }
+              });
+            }
+          });
+        }
+      });
     }
-  }
-}
 
-function populateFilterSelectors() {
-  const appSelect = document.getElementById('filter-app');
-  const productSelect = document.getElementById('filter-product');
-  
-  if (!appSelect || !productSelect) return;
-  
-  // Clear dynamic options
-  appSelect.innerHTML = `<option value="all">All Applications</option>`;
-  productSelect.innerHTML = `<option value="all">All Products</option>`;
-  
-  // Find distinct apps
-  const appNames = new Set();
-  if (rawAnalyticsData.app) {
-    rawAnalyticsData.app.forEach(entry => {
-      if (entry.environments) {
-        entry.environments.forEach(env => {
-          if (env.dimensions) {
-            env.dimensions.forEach(dim => {
-              if (dim.individualNames) {
-                dim.individualNames.forEach(name => appNames.add(name));
-              }
-            });
-          }
-        });
-      }
+    productNames.forEach((name) => {
+      productSelect.innerHTML += `<option value="${name}">${name}</option>`;
     });
   }
-  
-  appNames.forEach(name => {
-    // Add nice spaces for visual names if appropriate
-    const friendlyName = name.replace(/([A-Z])/g, ' $1').trim();
-    appSelect.innerHTML += `<option value="${name}">${friendlyName}</option>`;
-  });
-  
-  // Find distinct products
-  const productNames = new Set();
-  if (rawAnalyticsData.product) {
-    rawAnalyticsData.product.forEach(entry => {
-      if (entry.environments) {
-        entry.environments.forEach(env => {
-          if (env.dimensions) {
-            env.dimensions.forEach(dim => {
-              if (dim.individualNames) {
-                dim.individualNames.forEach(name => productNames.add(name));
-              }
-            });
-          }
-        });
-      }
-    });
-  }
-  
-  productNames.forEach(name => {
-    productSelect.innerHTML += `<option value="${name}">${name}</option>`;
-  });
-}
 
-function processAndRenderAnalytics() {
-  if (!rawAnalyticsData) return;
-  
-  const selectedApp = document.getElementById('filter-app').value;
-  const selectedProd = document.getElementById('filter-product').value;
-  
-  // Containers for results grouping
-  let totalRequests = 0;
-  let totalPrompts = 0;
-  let totalResponses = 0;
-  
-  // Daily series mapping (timestamp -> metrics totals)
-  const dailySeries = {};
-  
-  // Product share counters (productName -> requests)
-  const productShare = {};
-  
-  // 1. Process Product logs (to capture product distribution & table explorer stats)
-  if (rawAnalyticsData.product) {
-    rawAnalyticsData.product.forEach(entry => {
-      if (entry.environments) {
-        entry.environments.forEach(env => {
-          if (env.dimensions) {
-            env.dimensions.forEach(dim => {
-              const prodName = dim.individualNames ? dim.individualNames[0] : '';
-              if (!prodName) return;
-              
-              // Skip if product filter doesn't match
-              if (selectedProd !== 'all' && selectedProd !== prodName) return;
-              
-              // Find metrics
-              let msgCount = 0;
-              let promptTokens = 0;
-              let responseTokens = 0;
-              
-              if (dim.metrics) {
-                dim.metrics.forEach(m => {
-                  const isMsg = m.name === 'sum(message_count)';
-                  const isPrompt = m.name === 'sum(dc_ai_prompt_token_count)';
-                  const isResp = m.name === 'sum(dc_ai_response_token_count)';
-                  
-                  if (m.values) {
-                    m.values.forEach(v => {
-                      const ts = parseInt(v.timestamp);
-                      const val = parseInt(v.value) || 0;
-                      
-                      // Filter checks: if selecting an app, we'll reconcile in step 2. But we can accumulate daily values if no App is selected.
-                      if (selectedApp === 'all') {
-                        if (!dailySeries[ts]) dailySeries[ts] = { requests: 0, prompts: 0, responses: 0 };
-                        if (isMsg) dailySeries[ts].requests += val;
-                        if (isPrompt) dailySeries[ts].prompts += val;
-                        if (isResp) dailySeries[ts].responses += val;
-                      }
-                      
-                      if (isMsg) msgCount += val;
-                      if (isPrompt) promptTokens += val;
-                      if (isResp) responseTokens += val;
-                    });
-                  }
-                });
-              }
-              
-              productShare[prodName] = (productShare[prodName] || 0) + msgCount;
-            });
-          }
-        });
-      }
-    });
-  }
-  
-  // 2. Process App logs (to handle App-specific filters accurately)
-  if (rawAnalyticsData.app) {
-    rawAnalyticsData.app.forEach(entry => {
-      if (entry.environments) {
-        entry.environments.forEach(env => {
-          if (env.dimensions) {
-            env.dimensions.forEach(dim => {
-              const appDimName = dim.individualNames ? dim.individualNames[0] : '';
-              if (!appDimName) return;
-              
-              // Skip if app filter is set and doesn't match
-              if (selectedApp !== 'all' && selectedApp !== appDimName) return;
-              
-              // Re-accumulate totals for KPI cards and daily charts if App filter is active
-              if (dim.metrics) {
-                dim.metrics.forEach(m => {
-                  const isMsg = m.name === 'sum(message_count)';
-                  const isPrompt = m.name === 'sum(dc_ai_prompt_token_count)';
-                  const isResp = m.name === 'sum(dc_ai_response_token_count)';
-                  
-                  if (m.values) {
-                    m.values.forEach(v => {
-                      const ts = parseInt(v.timestamp);
-                      const val = parseInt(v.value) || 0;
-                      
-                      // Accumulate to KPI totals
-                      if (isMsg) totalRequests += val;
-                      if (isPrompt) totalPrompts += val;
-                      if (isResp) totalResponses += val;
-                      
-                      // Re-build dailySeries for this App
-                      if (selectedApp !== 'all') {
-                        if (!dailySeries[ts]) dailySeries[ts] = { requests: 0, prompts: 0, responses: 0 };
-                        if (isMsg) dailySeries[ts].requests += val;
-                        if (isPrompt) dailySeries[ts].prompts += val;
-                        if (isResp) dailySeries[ts].responses += val;
-                      }
-                    });
-                  }
-                });
-              }
-            });
-          }
-        });
-      }
-    });
-  }
-  
-  // If app filter is 'all', KPI totals should be drawn from product totals to avoid double counting across filters
-  if (selectedApp === 'all') {
-    Object.values(dailySeries).forEach(day => {
-      totalRequests += day.requests;
-      totalPrompts += day.prompts;
-      totalResponses += day.responses;
-    });
-  }
-  
-  // Update KPI displays
-  document.getElementById('kpi-requests').textContent = Number(totalRequests).toLocaleString();
-  document.getElementById('kpi-tokens').textContent = formatTokensNumber(totalPrompts + totalResponses);
-  
-  const efficiency = totalPrompts > 0 ? Math.round((totalResponses / totalPrompts) * 100) : 0;
-  document.getElementById('kpi-efficiency').textContent = `${efficiency}%`;
-  
-  // Re-build tables
-  buildAnalyticsExplorerTable(selectedProd, selectedApp);
-  
-  // Process chart series sorted chronologically
-  const sortedTimestamps = Object.keys(dailySeries).map(Number).sort((a,b) => a - b);
-  const labels = sortedTimestamps.map(ts => {
-    const d = new Date(ts);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  });
-  
-  const volumeData = sortedTimestamps.map(ts => dailySeries[ts].requests);
-  const promptsData = sortedTimestamps.map(ts => dailySeries[ts].prompts);
-  const responsesData = sortedTimestamps.map(ts => dailySeries[ts].responses);
-  
-  // Render Charts
-  renderVolumeChart(labels, volumeData);
-  renderTokenChart(labels, promptsData, responsesData);
-  renderProductsChart(productShare);
-}
+  function processAndRenderAnalytics() {
+    if (!rawAnalyticsData) return;
 
-function buildAnalyticsExplorerTable(filterProd, filterApp) {
-  const tbody = document.getElementById('analytics-table-body');
-  if (!tbody) return;
-  
-  let html = '';
-  const productsRows = {};
-  
-  // Accumulate metrics row by row
-  if (rawAnalyticsData.product) {
-    rawAnalyticsData.product.forEach(entry => {
-      if (entry.environments) {
-        entry.environments.forEach(env => {
-          if (env.dimensions) {
-            env.dimensions.forEach(dim => {
-              const pName = dim.individualNames ? dim.individualNames[0] : '';
-              if (!pName) return;
-              
-              if (filterProd !== 'all' && filterProd !== pName) return;
-              
-              if (!productsRows[pName]) {
-                productsRows[pName] = { requests: 0, prompts: 0, responses: 0 };
-              }
-              
-              dim.metrics.forEach(m => {
-                const isMsg = m.name === 'sum(message_count)';
-                const isPrompt = m.name === 'sum(dc_ai_prompt_token_count)';
-                const isResp = m.name === 'sum(dc_ai_response_token_count)';
-                
-                m.values.forEach(v => {
-                  const val = parseInt(v.value) || 0;
-                  if (isMsg) productsRows[pName].requests += val;
-                  if (isPrompt) productsRows[pName].prompts += val;
-                  if (isResp) productsRows[pName].responses += val;
+    const selectedApp = document.getElementById("filter-app").value;
+    const selectedProd = document.getElementById("filter-product").value;
+
+    // Containers for results grouping
+    let totalRequests = 0;
+    let totalPrompts = 0;
+    let totalResponses = 0;
+
+    // Daily series mapping (timestamp -> metrics totals)
+    const dailySeries = {};
+
+    // Product share counters (productName -> requests)
+    const productShare = {};
+
+    // 1. Process Product logs (to capture product distribution & table explorer stats)
+    if (rawAnalyticsData.product) {
+      rawAnalyticsData.product.forEach((entry) => {
+        if (entry.environments) {
+          entry.environments.forEach((env) => {
+            if (env.dimensions) {
+              env.dimensions.forEach((dim) => {
+                const prodName = dim.individualNames ? dim.individualNames[0] : "";
+                if (!prodName) return;
+
+                // Skip if product filter doesn't match
+                if (selectedProd !== "all" && selectedProd !== prodName) return;
+
+                // Find metrics
+                let msgCount = 0;
+                let promptTokens = 0;
+                let responseTokens = 0;
+
+                if (dim.metrics) {
+                  dim.metrics.forEach((m) => {
+                    const isMsg = m.name === "sum(message_count)";
+                    const isPrompt = m.name === "sum(dc_ai_prompt_token_count)";
+                    const isResp = m.name === "sum(dc_ai_response_token_count)";
+
+                    if (m.values) {
+                      m.values.forEach((v) => {
+                        const ts = parseInt(v.timestamp);
+                        const val = parseInt(v.value) || 0;
+
+                        // Filter checks: if selecting an app, we'll reconcile in step 2. But we can accumulate daily values if no App is selected.
+                        if (selectedApp === "all") {
+                          if (!dailySeries[ts])
+                            dailySeries[ts] = { requests: 0, prompts: 0, responses: 0 };
+                          if (isMsg) dailySeries[ts].requests += val;
+                          if (isPrompt) dailySeries[ts].prompts += val;
+                          if (isResp) dailySeries[ts].responses += val;
+                        }
+
+                        if (isMsg) msgCount += val;
+                        if (isPrompt) promptTokens += val;
+                        if (isResp) responseTokens += val;
+                      });
+                    }
+                  });
+                }
+
+                productShare[prodName] = (productShare[prodName] || 0) + msgCount;
+              });
+            }
+          });
+        }
+      });
+    }
+
+    // 2. Process App logs (to handle App-specific filters accurately)
+    if (rawAnalyticsData.app) {
+      rawAnalyticsData.app.forEach((entry) => {
+        if (entry.environments) {
+          entry.environments.forEach((env) => {
+            if (env.dimensions) {
+              env.dimensions.forEach((dim) => {
+                const appDimName = dim.individualNames ? dim.individualNames[0] : "";
+                if (!appDimName) return;
+
+                // Skip if app filter is set and doesn't match
+                if (selectedApp !== "all" && selectedApp !== appDimName) return;
+
+                // Re-accumulate totals for KPI cards and daily charts if App filter is active
+                if (dim.metrics) {
+                  dim.metrics.forEach((m) => {
+                    const isMsg = m.name === "sum(message_count)";
+                    const isPrompt = m.name === "sum(dc_ai_prompt_token_count)";
+                    const isResp = m.name === "sum(dc_ai_response_token_count)";
+
+                    if (m.values) {
+                      m.values.forEach((v) => {
+                        const ts = parseInt(v.timestamp);
+                        const val = parseInt(v.value) || 0;
+
+                        // Accumulate to KPI totals
+                        if (isMsg) totalRequests += val;
+                        if (isPrompt) totalPrompts += val;
+                        if (isResp) totalResponses += val;
+
+                        // Re-build dailySeries for this App
+                        if (selectedApp !== "all") {
+                          if (!dailySeries[ts])
+                            dailySeries[ts] = { requests: 0, prompts: 0, responses: 0 };
+                          if (isMsg) dailySeries[ts].requests += val;
+                          if (isPrompt) dailySeries[ts].prompts += val;
+                          if (isResp) dailySeries[ts].responses += val;
+                        }
+                      });
+                    }
+                  });
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+
+    // If app filter is 'all', KPI totals should be drawn from product totals to avoid double counting across filters
+    if (selectedApp === "all") {
+      Object.values(dailySeries).forEach((day) => {
+        totalRequests += day.requests;
+        totalPrompts += day.prompts;
+        totalResponses += day.responses;
+      });
+    }
+
+    // Update KPI displays
+    document.getElementById("kpi-requests").textContent = Number(totalRequests).toLocaleString();
+    document.getElementById("kpi-tokens").textContent = formatTokensNumber(
+      totalPrompts + totalResponses,
+    );
+
+    const efficiency = totalPrompts > 0 ? Math.round((totalResponses / totalPrompts) * 100) : 0;
+    document.getElementById("kpi-efficiency").textContent = `${efficiency}%`;
+
+    // Re-build tables
+    buildAnalyticsExplorerTable(selectedProd, selectedApp);
+
+    // Process chart series sorted chronologically
+    const sortedTimestamps = Object.keys(dailySeries)
+      .map(Number)
+      .sort((a, b) => a - b);
+    const labels = sortedTimestamps.map((ts) => {
+      const d = new Date(ts);
+      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    });
+
+    const volumeData = sortedTimestamps.map((ts) => dailySeries[ts].requests);
+    const promptsData = sortedTimestamps.map((ts) => dailySeries[ts].prompts);
+    const responsesData = sortedTimestamps.map((ts) => dailySeries[ts].responses);
+
+    // Render Charts
+    renderVolumeChart(labels, volumeData);
+    renderTokenChart(labels, promptsData, responsesData);
+    renderProductsChart(productShare);
+  }
+
+  function buildAnalyticsExplorerTable(filterProd, filterApp) {
+    const tbody = document.getElementById("analytics-table-body");
+    if (!tbody) return;
+
+    let html = "";
+    const productsRows = {};
+
+    // Accumulate metrics row by row
+    if (rawAnalyticsData.product) {
+      rawAnalyticsData.product.forEach((entry) => {
+        if (entry.environments) {
+          entry.environments.forEach((env) => {
+            if (env.dimensions) {
+              env.dimensions.forEach((dim) => {
+                const pName = dim.individualNames ? dim.individualNames[0] : "";
+                if (!pName) return;
+
+                if (filterProd !== "all" && filterProd !== pName) return;
+
+                if (!productsRows[pName]) {
+                  productsRows[pName] = { requests: 0, prompts: 0, responses: 0 };
+                }
+
+                dim.metrics.forEach((m) => {
+                  const isMsg = m.name === "sum(message_count)";
+                  const isPrompt = m.name === "sum(dc_ai_prompt_token_count)";
+                  const isResp = m.name === "sum(dc_ai_response_token_count)";
+
+                  m.values.forEach((v) => {
+                    const val = parseInt(v.value) || 0;
+                    if (isMsg) productsRows[pName].requests += val;
+                    if (isPrompt) productsRows[pName].prompts += val;
+                    if (isResp) productsRows[pName].responses += val;
+                  });
                 });
               });
-            });
-          }
-        });
-      }
-    });
-  }
-  
-  const rowKeys = Object.keys(productsRows);
-  if (rowKeys.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">No usage data matches your current filters.</td></tr>`;
-    return;
-  }
-  
-  rowKeys.forEach(pId => {
-    // Resolve protocol
-    const pObj = app.products.find(item => item.productId === pId || item.id === pId);
-    const style = pObj ? pObj.displayStyle : 'REST';
-    const row = productsRows[pId];
-    const totalTokens = row.prompts + row.responses;
-    
-    html += `
+            }
+          });
+        }
+      });
+    }
+
+    const rowKeys = Object.keys(productsRows);
+    if (rowKeys.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">No usage data matches your current filters.</td></tr>`;
+      return;
+    }
+
+    rowKeys.forEach((pId) => {
+      // Resolve protocol
+      const pObj = app.products.find((item) => item.productId === pId || item.id === pId);
+      const style = pObj ? pObj.displayStyle : "REST";
+      const row = productsRows[pId];
+      const totalTokens = row.prompts + row.responses;
+
+      html += `
       <tr>
         <td style="font-weight:600;">${pId}</td>
-        <td><span class="style-badge ${(style||'').toLowerCase()}">${style}</span></td>
+        <td><span class="style-badge ${(style || "").toLowerCase()}">${style}</span></td>
         <td>${Number(row.requests).toLocaleString()}</td>
         <td>${Number(row.prompts).toLocaleString()}</td>
         <td>${Number(row.responses).toLocaleString()}</td>
         <td style="font-weight:700;">${Number(totalTokens).toLocaleString()}</td>
       </tr>
     `;
-  });
-  
-  tbody.innerHTML = html;
-}
+    });
 
-// Chart.js Generators
-function renderVolumeChart(labels, data) {
-  const ctx = document.getElementById('chart-volume').getContext('2d');
-  if (volumeChartInstance) volumeChartInstance.destroy();
-  
-  const isLight = app.theme === 'light';
-  
-  volumeChartInstance = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Invocations',
-        data: data,
-        borderColor: '#6366f1',
-        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-        fill: true,
-        tension: 0.35,
-        borderWidth: 2.5,
-        pointBackgroundColor: '#6366f1',
-        pointRadius: 4,
-        pointHoverRadius: 6
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        x: {
-          grid: { color: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' },
-          ticks: { color: isLight ? '#475569' : '#9ca3af' }
-        },
-        y: {
-          grid: { color: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' },
-          ticks: { color: isLight ? '#475569' : '#9ca3af' }
-        }
-      }
-    }
-  });
-}
+    tbody.innerHTML = html;
+  }
 
-function renderTokenChart(labels, prompts, responses) {
-  const ctx = document.getElementById('chart-tokens').getContext('2d');
-  if (tokenChartInstance) tokenChartInstance.destroy();
-  
-  const isLight = app.theme === 'light';
-  
-  tokenChartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          label: 'Prompt Tokens',
-          data: prompts,
-          backgroundColor: '#3b82f6',
-          borderRadius: 4
-        },
-        {
-          label: 'Response Tokens',
-          data: responses,
-          backgroundColor: '#10b981',
-          borderRadius: 4
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { color: isLight ? '#0f172a' : '#f9fafb' }
-        }
-      },
-      scales: {
-        x: {
-          stacked: true,
-          grid: { color: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' },
-          ticks: { color: isLight ? '#475569' : '#9ca3af' }
-        },
-        y: {
-          stacked: true,
-          grid: { color: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' },
-          ticks: { color: isLight ? '#475569' : '#9ca3af' }
-        }
-      }
-    }
-  });
-}
+  // Chart.js Generators
+  function renderVolumeChart(labels, data) {
+    const ctx = document.getElementById("chart-volume").getContext("2d");
+    if (volumeChartInstance) volumeChartInstance.destroy();
 
-function renderProductsChart(shares) {
-  const ctx = document.getElementById('chart-products').getContext('2d');
-  if (productChartInstance) productChartInstance.destroy();
-  
-  const isLight = app.theme === 'light';
-  const labels = Object.keys(shares);
-  const data = Object.values(shares);
-  
-  productChartInstance = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: labels,
-      datasets: [{
-        data: data,
-        backgroundColor: [
-          '#6366f1', '#10b981', '#06b6d4', '#f59e0b', '#ec4899', '#8b5cf6', '#ef4444'
+    const isLight = app.theme === "light";
+
+    volumeChartInstance = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Invocations",
+            data: data,
+            borderColor: "#6366f1",
+            backgroundColor: "rgba(99, 102, 241, 0.1)",
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2.5,
+            pointBackgroundColor: "#6366f1",
+            pointRadius: 4,
+            pointHoverRadius: 6,
+          },
         ],
-        borderWidth: isLight ? 2 : 0,
-        borderColor: isLight ? '#fff' : ''
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { color: isLight ? '#0f172a' : '#f9fafb', boxWidth: 12 }
-        }
-      }
-    }
-  });
-}
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+        },
+        scales: {
+          x: {
+            grid: { color: isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)" },
+            ticks: { color: isLight ? "#475569" : "#9ca3af" },
+          },
+          y: {
+            grid: { color: isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)" },
+            ticks: { color: isLight ? "#475569" : "#9ca3af" },
+          },
+        },
+      },
+    });
+  }
 
-// Visual formats
-function formatTokensNumber(num) {
-  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-  if (num >= 1000) return `${(num / 1000).toFixed(0)}k`;
-  return num;
-}
+  function renderTokenChart(labels, prompts, responses) {
+    const ctx = document.getElementById("chart-tokens").getContext("2d");
+    if (tokenChartInstance) tokenChartInstance.destroy();
+
+    const isLight = app.theme === "light";
+
+    tokenChartInstance = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Prompt Tokens",
+            data: prompts,
+            backgroundColor: "#3b82f6",
+            borderRadius: 4,
+          },
+          {
+            label: "Response Tokens",
+            data: responses,
+            backgroundColor: "#10b981",
+            borderRadius: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { color: isLight ? "#0f172a" : "#f9fafb" },
+          },
+        },
+        scales: {
+          x: {
+            stacked: true,
+            grid: { color: isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)" },
+            ticks: { color: isLight ? "#475569" : "#9ca3af" },
+          },
+          y: {
+            stacked: true,
+            grid: { color: isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)" },
+            ticks: { color: isLight ? "#475569" : "#9ca3af" },
+          },
+        },
+      },
+    });
+  }
+
+  function renderProductsChart(shares) {
+    const ctx = document.getElementById("chart-products").getContext("2d");
+    if (productChartInstance) productChartInstance.destroy();
+
+    const isLight = app.theme === "light";
+    const labels = Object.keys(shares);
+    const data = Object.values(shares);
+
+    productChartInstance = new Chart(ctx, {
+      type: "doughnut",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            data: data,
+            backgroundColor: [
+              "#6366f1",
+              "#10b981",
+              "#06b6d4",
+              "#f59e0b",
+              "#ec4899",
+              "#8b5cf6",
+              "#ef4444",
+            ],
+            borderWidth: isLight ? 2 : 0,
+            borderColor: isLight ? "#fff" : "",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { color: isLight ? "#0f172a" : "#f9fafb", boxWidth: 12 },
+          },
+        },
+      },
+    });
+  }
+
+  // Visual formats
+  function formatTokensNumber(num) {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(0)}k`;
+    return num;
+  }
 </script>

@@ -44,3 +44,18 @@ curl -X POST "https://apihub.googleapis.com/v1/projects/$GOOGLE_CLOUD_PROJECT/lo
   "cardinality": 4
 }
 EOF
+
+curl -X POST "https://apihub.googleapis.com/v1/projects/$GOOGLE_CLOUD_PROJECT/locations/$GOOGLE_CLOUD_LOCATION/attributes?attributeId=productName" \
+-H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
+-H 'Content-Type: application/json; charset=utf-8' \
+--data-binary @- << EOF
+
+{
+  "name": "projects/$GOOGLE_CLOUD_PROJECT/locations/$GOOGLE_CLOUD_LOCATION/attributes/tags",
+  "displayName": "Product Name",
+  "description": "The API product name, if it differs from the API name.",
+  "scope": "API",
+  "dataType": "STRING",
+  "cardinality": 1
+}
+EOF

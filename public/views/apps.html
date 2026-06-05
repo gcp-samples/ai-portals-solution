@@ -1,7 +1,7 @@
 <div class="apps-container">
   <div class="apps-header">
     <div>
-      <h1 style="font-size:2rem; margin-bottom:0.5rem;">My API Subscriptions</h1>
+      <h1 style="font-size:2rem; margin-bottom:0.5rem;">My Apps</h1>
       <p style="color:var(--text-secondary);">Manage developer credentials, track product subscriptions, and orchestrate client-keys for sandbox integrations.</p>
     </div>
     
@@ -296,16 +296,19 @@ async function loadUserApplications() {
     if (CONFIG.demoMode) {
       const cached = localStorage.getItem('prism_apps_demo');
       if (cached) {
-        userApps = JSON.parse(cached);
+        const data = JSON.parse(cached);
+        userApps = Array.isArray(data) ? data : (data.apps || []);
       } else {
         const res = await fetch('/mock-apps.json');
-        userApps = await res.json();
+        const data = await res.json();
+        userApps = data.apps || [];
         localStorage.setItem('prism_apps_demo', JSON.stringify(userApps));
       }
     } else {
       const res = await app.makeRequest(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${app.user.email}/apps`);
       if (!res.ok) throw new Error();
-      userApps = await res.json();
+      const data = await res.json();
+      userApps = data.apps || [];
     }
     
     localStorage.setItem(cacheKey, JSON.stringify(userApps));

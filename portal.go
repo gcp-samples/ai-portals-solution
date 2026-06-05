@@ -404,11 +404,7 @@ func productHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if allProducts == nil {
-		allProducts = []Product{}
-	}
-
-	jsonResponse(w, http.StatusOK, allProducts)
+	jsonResponse(w, http.StatusOK, ProductsResponse{Products: allProducts})
 }
 
 func productSpecHandler(w http.ResponseWriter, r *http.Request) {
@@ -561,10 +557,7 @@ func userAppsHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if allApps == nil {
-			allApps = []App{}
-		}
-		jsonResponse(w, http.StatusOK, allApps)
+		jsonResponse(w, http.StatusOK, AppsResponse{Apps: allApps})
 		return
 	}
 

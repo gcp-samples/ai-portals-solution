@@ -3,7 +3,7 @@
  */
 
 const CONFIG = {
-  demoMode: false,
+  demoMode: true,
   portalId: "demo",
   apiHost: "",
   portalConfig: null,
@@ -19,9 +19,12 @@ class AppPortal {
     this.firebaseInitialized = false;
     this.products = [];
     this.apps = [];
+    this.initialLoad = false;
+    this.codeDefaultDemoMode = CONFIG.demoMode;
   }
 
   async init() {
+    this.initialLoad = true;
     this.loadSettingsFromStorage();
     this.setupTheme();
     this.setupEventListeners();
@@ -32,12 +35,19 @@ class AppPortal {
     // Process initial route
     this.handleRoute();
     window.addEventListener("hashchange", () => this.handleRoute());
+    this.initialLoad = false;
   }
 
   loadSettingsFromStorage() {
-    const savedMode = localStorage.getItem("portal_demo_mode");
-    if (savedMode !== null) {
-      CONFIG.demoMode = savedMode === "true";
+    if (this.codeDefaultDemoMode) {
+      const savedMode = localStorage.getItem("portal_demo_mode");
+      if (savedMode !== null) {
+        CONFIG.demoMode = savedMode === "true";
+      } else {
+        CONFIG.demoMode = this.codeDefaultDemoMode;
+      }
+    } else {
+      CONFIG.demoMode = false;
     }
 
     const savedTheme = localStorage.getItem("portal_theme");
@@ -84,34 +94,33 @@ class AppPortal {
       badge.textContent = CONFIG.demoMode ? "DEMO MODE" : "LIVE APIS";
       badge.className = CONFIG.demoMode ? "dev-badge" : "dev-badge prod";
     }
+    const demoInfo = document.getElementById("demo-info");
+    if (demoInfo) {
+      demoInfo.style.display = CONFIG.demoMode ? "block" : "none";
+    }
+    const devToolbar = document.getElementById("dev-toolbar");
+    if (devToolbar) {
+      devToolbar.style.display = CONFIG.demoMode || this.codeDefaultDemoMode ? "flex" : "none";
+    }
+    const selector = document.getElementById("mode-selector");
+    if (selector) {
+      selector.value = CONFIG.demoMode ? "demo" : "live";
+    }
   }
 
   async togglePortalMode(mode) {
     const prevMode = CONFIG.demoMode;
     CONFIG.demoMode = mode === "demo";
-    localStorage.setItem("portal_demo_mode", CONFIG.demoMode);
-
-    this.updateModeBadge();
-    this.showToast(
-      `Switched to ${CONFIG.demoMode ? "Demo Mode" : "Production API Mode"}. Reloading configurations...`,
-      "info",
-    );
+    if (this.codeDefaultDemoMode) {
+      localStorage.setItem("portal_demo_mode", CONFIG.demoMode);
+    }
 
     // Reset Auth state if switching modes
     this.user = null;
     localStorage.removeItem("portal_demo_user");
 
-    // Reload portal config and re-route
-    await this.loadPortalConfig();
-    this.updateAuthHeaderUI();
-
-    // If switching to live and firebase auth is needed, init it
-    if (!CONFIG.demoMode) {
-      this.initFirebase();
-    }
-
-    // Refresh current page
-    this.handleRoute();
+    // Refresh the page automatically to completely reload configs and routing
+    window.location.reload();
   }
 
   setupEventListeners() {
@@ -154,21 +163,62 @@ class AppPortal {
   async loadPortalConfig() {
     try {
       let config;
-      if (CONFIG.demoMode) {
-        const res = await fetch("/mock-portal.json");
-        config = await res.json();
-      } else {
-        const res = await fetch(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}`);
-        if (!res.ok) throw new Error("Portal config fetch failed");
-        config = await res.json();
+      let liveConfigFetched = false;
+
+      // On initial page load, check if live config supports identity platform
+      if (this.initialLoad && !this.codeDefaultDemoMode) {
+        try {
+          const res = await fetch(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}`);
+          if (res.ok) {
+            const tempConfig = await res.json();
+            if (
+              tempConfig &&
+              tempConfig.authType === "identity-platform" &&
+              tempConfig.authApiKey
+            ) {
+              CONFIG.demoMode = false;
+              this.updateModeBadge();
+              config = tempConfig;
+              liveConfigFetched = true;
+              console.log(
+                "Automatically switched to Live APIs on load due to Identity Platform configuration.",
+              );
+            }
+          }
+        } catch (e) {
+          console.warn("Could not check live API config on load, using default/demo fallback.", e);
+        }
       }
+
+      // If we didn't fetch live config during initial load check, load based on mode
+      if (!liveConfigFetched) {
+        if (CONFIG.demoMode) {
+          const res = await fetch("/mock-portal.json");
+          config = await res.json();
+        } else {
+          const res = await fetch(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}`);
+          if (res.ok) {
+            config = await res.json();
+          } else {
+            console.warn("Live API config fetch failed. Falling back to Demo Mode.");
+            CONFIG.demoMode = true;
+            if (this.codeDefaultDemoMode) {
+              localStorage.setItem("portal_demo_mode", "true");
+            }
+            this.updateModeBadge();
+            const mockRes = await fetch("/mock-portal.json");
+            config = await mockRes.json();
+          }
+        }
+      }
+
       CONFIG.portalConfig = config;
 
       // Update UI title
       const title = config.name || "Apigee AI Portal";
       document.getElementById("portal-title").textContent = title;
       document.getElementById("footer-portal-title").textContent = title;
-      document.title = `${title} - Developer Portal`;
+      document.title = title;
 
       this.updateAuthHeaderUI();
 
@@ -269,6 +319,10 @@ class AppPortal {
   openAuthModal() {
     const dialog = document.getElementById("auth-dialog");
     if (dialog) {
+      const authForm = document.getElementById("auth-form");
+      if (authForm) {
+        authForm.reset();
+      }
       dialog.showModal();
       this.setAuthTab("login");
     }
@@ -280,6 +334,10 @@ class AppPortal {
   }
 
   setAuthTab(tab) {
+    const authForm = document.getElementById("auth-form");
+    if (authForm) {
+      authForm.reset();
+    }
     const isLogin = tab === "login";
     document.getElementById("tab-login").classList.toggle("active", isLogin);
     document.getElementById("tab-register").classList.toggle("active", !isLogin);
@@ -297,6 +355,12 @@ class AppPortal {
       const lastNameInput = document.getElementById("auth-last-name");
       if (firstNameInput) firstNameInput.required = !isLogin;
       if (lastNameInput) lastNameInput.required = !isLogin;
+    }
+
+    const passwordInput = document.getElementById("auth-password");
+    if (passwordInput) {
+      passwordInput.required = !CONFIG.demoMode;
+      passwordInput.placeholder = CONFIG.demoMode ? "Optional in Demo mode" : "••••••••";
     }
   }
 
@@ -458,7 +522,7 @@ class AppPortal {
             </div>
             <div class="dropdown-item" onclick="app.navigate('apps')">
               <i data-lucide="layers" style="width:1rem; height:1rem;"></i>
-              My Subscriptions
+              My Apps
             </div>
             <div class="dropdown-item" onclick="app.navigate('analytics')">
               <i data-lucide="line-chart" style="width:1rem; height:1rem;"></i>
@@ -579,6 +643,14 @@ class AppPortal {
     const container = document.getElementById("toast-container");
     if (!container) return;
 
+    if (typeof container.showPopover === "function") {
+      try {
+        container.showPopover();
+      } catch (e) {
+        // Safe to ignore if already open
+      }
+    }
+
     const toast = document.createElement("div");
     toast.className = `toast ${type}`;
 
@@ -598,7 +670,16 @@ class AppPortal {
     setTimeout(() => {
       toast.style.animation = "slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) reverse";
       toast.style.opacity = "0";
-      setTimeout(() => toast.remove(), 300);
+      setTimeout(() => {
+        toast.remove();
+        if (container.childElementCount === 0 && typeof container.hidePopover === "function") {
+          try {
+            container.hidePopover();
+          } catch (e) {
+            // Safe to ignore
+          }
+        }
+      }, 300);
     }, 4000);
   }
 

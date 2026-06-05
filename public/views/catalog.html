@@ -321,11 +321,13 @@ async function loadCatalogProducts() {
     let products = [];
     if (CONFIG.demoMode) {
       const res = await fetch('/mock-products.json');
-      products = await res.json();
+      const data = await res.json();
+      products = data.products || [];
     } else {
       const res = await fetch(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/products`);
       if (!res.ok) throw new Error('Failed to fetch live products');
-      products = await res.json();
+      const data = await res.json();
+      products = data.products || [];
     }
     
     app.products = products;

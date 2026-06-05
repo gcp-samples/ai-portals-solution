@@ -133,3 +133,11 @@ type App struct {
 	Description string       `json:"description" yaml:"description"`
 	Credentials []Credential `json:"credentials" yaml:"credentials"`
 }
+
+type ProductsResponse struct {
+	Products []Product `json:"products"`
+}
+
+type AppsResponse struct {
+	Apps []App `json:"apps"`
+}

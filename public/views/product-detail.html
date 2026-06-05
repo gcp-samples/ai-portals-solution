@@ -210,11 +210,13 @@ async function fetchProductDetails(productId) {
     let products = [];
     if (CONFIG.demoMode) {
       const res = await fetch('/mock-products.json');
-      products = await res.json();
+      const data = await res.json();
+      products = data.products || [];
     } else {
       const res = await fetch(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/products`);
       if (!res.ok) throw new Error();
-      products = await res.json();
+      const data = await res.json();
+      products = data.products || [];
     }
     
     currentProduct = products.find(p => p.productId === productId || p.id === productId);
@@ -394,16 +396,19 @@ async function handleSubscriptionStatusUI(productId) {
       // Load apps from localStorage or mock
       const cached = localStorage.getItem('prism_apps_demo');
       if (cached) {
-        userApps = JSON.parse(cached);
+        const data = JSON.parse(cached);
+        userApps = Array.isArray(data) ? data : (data.apps || []);
       } else {
         const res = await fetch('/mock-apps.json');
-        userApps = await res.json();
+        const data = await res.json();
+        userApps = data.apps || [];
         localStorage.setItem('prism_apps_demo', JSON.stringify(userApps));
       }
     } else {
       const res = await app.makeRequest(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${app.user.email}/apps`);
       if (!res.ok) throw new Error();
-      userApps = await res.json();
+      const data = await res.json();
+      userApps = data.apps || [];
     }
     
     app.apps = userApps;

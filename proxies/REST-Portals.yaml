@@ -1,0 +1,665 @@
+name: REST-Portals
+displayName: REST-Portals
+type: feature
+description: REST-Portals
+documentation: ""
+categories: []
+parameters:
+  - name: DISPLAY_NAME
+    displayName: DISPLAY_NAME
+    description: Configuration input for DISPLAY_NAME
+    default: Apigee AI Portal
+    examples: []
+    maps: {}
+  - name: AUTH_API_KEY
+    displayName: AUTH_API_KEY
+    description: Configuration input for AUTH_API_KEY
+    default:
+    examples: []
+    maps: {}
+  - name: AUTH_DOMAIN
+    displayName: AUTH_DOMAIN
+    description: Configuration input for AUTH_DOMAIN
+    default:
+    examples: []
+    maps: {}
+defaultEndpoint:
+  name: default
+  basePath: /api/portals
+  routes:
+    - name: default
+  flows:
+    - name: PreFlow
+      mode: Request
+      steps:
+        - name: CORS-SetCors
+        - name: RC-ResponseCache
+        - name: AM-SetVariables
+    - name: GET Products
+      mode: Response
+      condition: (proxy.pathsuffix MatchesPath "/*/products") and (request.verb = "GET")
+      steps:
+        - name: SC-GetAPIs
+        - name: JS-TransformProducts
+        - name: RC-ResponseCache
+    - name: POST Login
+      mode: Response
+      condition: (proxy.pathsuffix MatchesPath "/*/users/*/login") and (request.verb =
+        "POST")
+      steps:
+        - name: SC-CreateUser
+    - name: GET Apps
+      mode: Request
+      condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps") and (request.verb =
+        "GET")
+      steps:
+        - name: JWT-VerifyToken
+    - name: GET Apps
+      mode: Response
+      condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps") and (request.verb =
+        "GET")
+      steps:
+        - name: SC-GetApps
+        - name: JS-TransformApps
+    - name: GET Analytics
+      mode: Request
+      condition: (proxy.pathsuffix MatchesPath "/*/users/*/analytics") and
+        (request.verb = "GET")
+      steps:
+        - name: JWT-VerifyToken
+    - name: GET Analytics
+      mode: Response
+      condition: (proxy.pathsuffix MatchesPath "/*/users/*/analytics") and
+        (request.verb = "GET")
+      steps:
+        - name: JS-SetTimeRange
+        - name: SC-GetAnalyticsApp
+        - name: SC-GetAnalyticsProduct
+        - name: SC-GetAnalyticsModel
+        - name: JS-SetAnalyticsResponse
+    - name: GET Portals
+      mode: Response
+      condition: (proxy.pathsuffix MatchesPath "/*") and (request.verb = "GET")
+      steps:
+        - name: JS-GetPortal
+  faultRules: []
+endpoints: []
+targets: []
+policies:
+  - name: AM-SetVariables
+    type: AssignMessage
+    content:
+      assignMessage:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: AM-SetVariables
+        displayName: AM-SetVariables
+        properties: {}
+        assignVariable:
+          name: jwt.issuer
+          template: https://securetoken.google.com/{organization.name}
+        ignoreUnresolvedVariables: "true"
+        assignTo:
+          metadata:
+            createNew: "false"
+            transport: http
+            type: request
+  - name: CORS-SetCors
+    type: CORS
+    content:
+      cors:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: CORS-SetCors
+        displayName: CORS-SetCors
+        allowOrigins: "{request.header.origin}"
+        allowMethods: GET, PUT, POST, DELETE
+        allowHeaders: "*"
+        exposeHeaders: "*"
+        maxAge: "3628800"
+        allowCredentials: "false"
+        generatePreflightResponse: "true"
+        ignoreUnresolvedVariables: "true"
+  - name: JS-GetPortal
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-GetPortal
+        displayName: JS-GetPortal
+        properties: {}
+        source: "
+
+          \    var urlParts =
+          context.getVariable(\"request.path\").split(\"/\");
+
+          \    var match = portalsConfig.filter(function(portal) {
+
+          \      return portal.id == urlParts[urlParts.length - 1];
+
+          \    })[0];
+
+
+          \    var displayName =
+          context.getVariable(\"propertyset.portals.DISPLAY_NAME\");
+
+          \    var authApiKey =
+          context.getVariable(\"propertyset.portals.AUTH_API_KEY\");
+
+          \    var authDomain =
+          context.getVariable(\"propertyset.portals.AUTH_DOMAIN\");
+
+
+          \    if (match) {
+
+          \      if (displayName) match.name = displayName;
+
+          \      if (authApiKey) match.authApiKey = authApiKey;
+
+          \      if (authDomain) match.authDomain = authDomain;
+
+          \      context.setVariable(\"response.content\",
+          JSON.stringify(match));
+
+          \    } else {
+
+          \      context.setVariable(\"response.status.code\", 404);
+
+          \    }
+
+          \  "
+        includeUrl: jsc://config.js
+  - name: JS-SetAnalyticsResponse
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-SetAnalyticsResponse
+        displayName: JS-SetAnalyticsResponse
+        properties: {}
+        source: "
+
+          \    var responsePayload = {};
+
+          \    var appResponse =
+          context.getVariable(\"analyticsAppResponse.content\");
+
+          \    var modelResponse =
+          context.getVariable(\"analyticsModelResponse.content\");
+
+          \    var productResponse =
+          context.getVariable(\"analyticsProductResponse.content\");
+
+          \    responsePayload[\"app\"] = [JSON.parse(appResponse)];
+
+          \    responsePayload[\"model\"] = [JSON.parse(modelResponse)];
+
+          \    responsePayload[\"product\"] = [JSON.parse(productResponse)];
+
+
+          \    context.setVariable(\"response.content\",
+          JSON.stringify(responsePayload));
+
+          \    context.setVariable(\"response.header.content-type\",
+          \"application/json\");
+
+          \  "
+  - name: JS-SetTimeRange
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-SetTimeRange
+        displayName: JS-SetTimeRange
+        properties: {}
+        source: "
+
+          \    var timeRange = getApigeeTimeRange();
+
+          \    context.setVariable(\"apigee.timeRange\", timeRange);
+
+
+          \    var email =
+          context.getVariable(\"jwt.JWT-VerifyToken.claim.email\");
+
+          \  "
+        includeUrl: jsc://transformations.js
+  - name: JS-TransformApps
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-TransformApps
+        displayName: JS-TransformApps
+        properties: {}
+        source: "
+
+          \    var responseObject = response.content.asJSON;
+
+          \    var result = transformApps(responseObject);
+
+          \    if (result)
+
+          \      response.content = JSON.stringify(result);
+
+          \    else
+
+          \      response.content = {\"apps\": []};
+
+          \  "
+        includeUrl: jsc://transformations.js
+  - name: JS-TransformProducts
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-TransformProducts
+        displayName: JS-TransformProducts
+        properties: {}
+        source: "
+
+          \    var responseObject = response.content.asJSON;
+
+          \    var result = transformApisToProducts(responseObject);
+
+          \    if (result)
+
+          \      response.content = JSON.stringify(result);
+
+          \    else
+
+          \      response.content = {\"products\": []};
+
+          \  "
+        includeUrl: jsc://transformations.js
+  - name: JWT-VerifyToken
+    type: VerifyJWT
+    content:
+      verifyJwt:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: JWT-VerifyToken
+        displayName: JWT-VerifyToken
+        algorithm: RS256
+        ignoreUnresolvedVariables: "false"
+        publicKey:
+          jwks:
+            metadata:
+              uri: https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com
+        issuer:
+          metadata:
+            ref: jwt.issuer
+        audience:
+          metadata:
+            ref: organization.name
+  - name: RC-ResponseCache
+    type: ResponseCache
+    content:
+      responseCache:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: RC-ResponseCache
+        displayName: RC-ResponseCache
+        cacheKey:
+          prefix: {}
+          keyFragment:
+            metadata:
+              ref: request.uri
+              type: string
+        scope: Exclusive
+        expirySettings:
+          expiryDate: {}
+          timeOfDay: {}
+          timeoutInSeconds:
+            metadata:
+              ref: ""
+            value: "3600"
+        skipCacheLookup: {}
+        skipCachePopulation: {}
+  - name: SC-CreateUser
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-CreateUser
+        displayName: SC-CreateUser
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "false"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+          set:
+            verb: POST
+            headers:
+              header:
+                metadata:
+                  name: Content-Type
+                value: application/json
+            payload: "{request.content}"
+        response: calloutResponse
+        httpTargetConnection:
+          properties: {}
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/developers
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
+  - name: SC-GetAPIs
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: SC-GetAPIs
+        displayName: SC-GetAPIs
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+        response: response
+        httpTargetConnection:
+          properties: {}
+          url: https://apihub.googleapis.com/v1/projects/{organization.name}/locations/{system.region.name}/apis
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
+  - name: SC-GetAnalyticsApp
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: SC-GetAnalyticsApp
+        displayName: SC-GetAnalyticsApp
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+        response: analyticsAppResponse
+        httpTargetConnection:
+          properties: {}
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/environments/{environment.name}/stats/developer_app?select=sum(message_count),sum(dc_ai_prompt_token_count),sum(dc_ai_response_token_count),avg(dc_ai_time_first_token)&timeUnit=day&timeRange={apigee.timeRange}&filter=%28developer_email%20eq%20%27{jwt.JWT-VerifyToken.claim.email}%27%29
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
+  - name: SC-GetAnalyticsModel
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: SC-GetAnalyticsModel
+        displayName: SC-GetAnalyticsModel
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+        response: analyticsModelResponse
+        httpTargetConnection:
+          properties: {}
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/environments/{environment.name}/stats/dc_ai_model?select=sum(dc_ai_prompt_token_count),sum(dc_ai_response_token_count),avg(dc_ai_time_first_token),avg(dc_ai_time_first_token)&timeUnit=day&timeRange={apigee.timeRange}&filter=%28developer_email%20eq%20%27{jwt.JWT-VerifyToken.claim.email}%27%29
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
+  - name: SC-GetAnalyticsProduct
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: SC-GetAnalyticsProduct
+        displayName: SC-GetAnalyticsProduct
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+        response: analyticsProductResponse
+        httpTargetConnection:
+          properties: {}
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/environments/{environment.name}/stats/api_product?select=sum(message_count),sum(dc_ai_prompt_token_count),sum(dc_ai_response_token_count),avg(dc_ai_time_first_token)&timeUnit=day&timeRange={apigee.timeRange}&filter=%28developer_email%20eq%20%27{jwt.JWT-VerifyToken.claim.email}%27%29
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
+  - name: SC-GetApps
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: SC-GetApps
+        displayName: SC-GetApps
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+        response: response
+        httpTargetConnection:
+          properties: {}
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/developers/{jwt.JWT-VerifyToken.claim.email}/apps?expand=true
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
+resources:
+  - name: config.js
+    type: jsc
+    content: |
+      var portalsConfig = [
+        {
+          "id": "demo",
+          "name": "Apigee AI Portal",
+          "authType": "identity-platform",
+          "authApiKey": "",
+          "authDomain": "",
+          "productGroups": [
+            {
+              "productGroupId": "core-products",
+              "allUsers": true,
+              "selectedAudiences": []
+            }
+          ]
+        }
+      ];
+  - name: transformations.js
+    type: jsc
+    content: |-
+      function transformApisToProducts(input) {
+        if (!input || !Array.isArray(input.apis)) {
+          return { products: [] };
+        }
+
+        var products = input.apis.map(function(api) {
+          // 1. Map ID from name (extract the last part of the path)
+          var id = api.name ? api.name.split('/').pop() : '';
+
+          // 2. Extract displayName
+          var displayName = api.displayName || '';
+
+          // 3. Extract versions
+          var versions = api.versions || [];
+
+          // 4. Extract createTime
+          var createTime = api.createTime || '';
+
+          // 5. Extract updateTime
+          var updateTime = api.updateTime || '';
+
+          // 6. Extract targetUser (just the displayName value)
+          var targetUser = null;
+          if (api.targetUser &&
+              api.targetUser.enumValues &&
+              api.targetUser.enumValues.values &&
+              api.targetUser.enumValues.values[0]) {
+            targetUser = api.targetUser.enumValues.values[0].displayName || null;
+          }
+
+          // 7. Extract categories and tags from attributes
+          var categories = [];
+          var tags = [];
+
+          if (api.attributes) {
+            var keys = Object.keys(api.attributes);
+            for (var i = 0; i < keys.length; i++) {
+              var key = keys[i];
+              var attr = api.attributes[key];
+              if (key.slice(-9) === '/category') {
+                var vals = (attr && attr.enumValues && attr.enumValues.values) || [];
+                categories = vals.map(function(v) {
+                  return v.displayName;
+                }).filter(Boolean);
+              } else if (key.slice(-5) === '/tags') {
+                tags = (attr && attr.stringValues && attr.stringValues.values) || [];
+              }
+            }
+          }
+
+          return {
+            id: id,
+            displayName: displayName,
+            versions: versions,
+            createTime: createTime,
+            updateTime: updateTime,
+            targetUser: targetUser,
+            categories: categories,
+            tags: tags
+          };
+        });
+
+        return { products: products };
+      }
+
+      function transformApps(input) {
+        if (!input || !Array.isArray(input.app)) {
+          return {apps: []};
+        }
+
+        var apps = input.app.map(function(app) {
+          // 1. Map ID from appId
+          var id = app.appId || '';
+
+          // 2. Map name from name
+          var name = app.name || '';
+
+          // 3. Extract description from attributes (find attribute with name "description")
+          var description = '';
+          if (app.attributes && Array.isArray(app.attributes)) {
+            for (var i = 0; i < app.attributes.length; i++) {
+              var attr = app.attributes[i];
+              if (attr && attr.name === 'description') {
+                description = attr.value || '';
+                break;
+              }
+            }
+          }
+
+          // 4. Map credentials
+          var credentials = [];
+          if (app.credentials && Array.isArray(app.credentials)) {
+            credentials = app.credentials.map(function(cred) {
+              var clientId = cred.consumerKey || '';
+              var clientSecret = cred.consumerSecret || '';
+
+              var products = [];
+              if (cred.apiProducts && Array.isArray(cred.apiProducts)) {
+                products = cred.apiProducts.map(function(prod) {
+                  return prod.apiproduct || '';
+                }).filter(Boolean);
+              }
+
+              return {
+                clientId: clientId,
+                clientSecret: clientSecret,
+                products: products
+              };
+            });
+          }
+
+          return {
+            credentials: credentials,
+            description: description,
+            id: id,
+            name: name
+          };
+        });
+
+        return { apps: apps };
+      }
+
+      function getApigeeTimeRange() {
+          var now = new Date();
+
+          // Create a date object set to exactly 3 months ago
+          var threeMonthsAgo = new Date();
+          threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+          // Helper function to pad single digits with a leading zero (ES5 alternative to padStart)
+          function pad(num) {
+              return (num < 10 ? '0' : '') + num;
+          }
+
+          // Helper function to format the date to MM/DD/YYYY HH:mm
+          function formatDate(date) {
+              var month = pad(date.getMonth() + 1); // Months are 0-indexed
+              var day = pad(date.getDate());
+              var year = date.getFullYear();
+              var hours = pad(date.getHours());
+              var minutes = pad(date.getMinutes());
+
+              return month + '/' + day + '/' + year + ' ' + hours + ':' + minutes;
+          }
+
+          // Combine both dates with the tilde separator
+          var rawRange = formatDate(threeMonthsAgo) + '~' + formatDate(now);
+
+          // URL-encode the string. encodeURIComponent leaves '~' unescaped naturally,
+          // matching your Apigee URL format perfectly.
+          return encodeURIComponent(rawRange);
+      }
+  - name: portals.properties
+    type: properties
+    content: |
+      DISPLAY_NAME={DISPLAY_NAME}
+      AUTH_API_KEY={AUTH_API_KEY}
+      AUTH_DOMAIN={AUTH_DOMAIN}
+tests: []

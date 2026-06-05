@@ -1,4 +1,5 @@
 {
+  "authType": "identity-platform",
   "authApiKey": "AI32kj432k32dfsf32jj4k2jk432fF9Y",
   "authDomain": "test-project.firebaseapp.com",
   "id": "demo",
