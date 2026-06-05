@@ -1,3 +1,15 @@
+#!/bin/bash
+
+read -p "Enter your Google Cloud Project Id: " project_id
+read -p "Enter your Google Cloud Region: " region
+
+echo "Saving $project_id and $region..."
+
+echo "export GOOGLE_CLOUD_PROJECT=$project_id" >> .env
+echo "export GOOGLE_CLOUD_LOCATION=$region" >> .env
+
+npm i apigee-templater -g
+
 curl -X POST "https://apihub.googleapis.com/v1/projects/$GOOGLE_CLOUD_PROJECT/locations/$GOOGLE_CLOUD_LOCATION/attributes?attributeId=category" \
 -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
 -H 'Content-Type: application/json; charset=utf-8' \

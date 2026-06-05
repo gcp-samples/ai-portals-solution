@@ -57,7 +57,7 @@ class AppPortal {
     if (CONFIG.demoMode) {
       const demoUser = localStorage.getItem("portal_demo_user");
       if (demoUser) {
-        this.user = JSON.parse(demoUser);
+        this.setUser(JSON.parse(demoUser));
       }
     }
 
@@ -128,7 +128,7 @@ class AppPortal {
     document.getElementById("theme-toggle").addEventListener("click", () => this.toggleTheme());
 
     // Auth Modal actions
-    document.getElementById("btn-show-login").addEventListener("click", () => this.openAuthModal());
+    document.getElementById("btn-show-login")?.addEventListener("click", () => this.openAuthModal());
     document
       .getElementById("btn-close-auth")
       .addEventListener("click", () => this.closeAuthModal());
@@ -586,18 +586,10 @@ class AppPortal {
   async loadView(viewName, param) {
     const mainContent = document.getElementById("main-content");
 
-    // Show loading skeleton
-    mainContent.innerHTML = `
-      <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:400px; gap:1rem;">
-        <div style="border: 4px solid var(--border-color); border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
-        <div style="color:var(--text-secondary); font-weight:500;">Loading content...</div>
-      </div>
-      <style>
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-      </style>
-    `;
+    // Add loading indicator class to body
+    document.body.classList.add("view-loading");
 
-    try {
+    const fetchAndUpdate = async () => {
       const response = await fetch(`/views/${viewName}.html`);
       if (!response.ok) throw new Error(`Failed to fetch view ${viewName}`);
 
@@ -624,18 +616,63 @@ class AppPortal {
 
       // Re-create icons for any new Lucide tags
       lucide.createIcons();
-    } catch (err) {
-      console.error(err);
+    };
+
+    if (!document.startViewTransition) {
+      // Show loading skeleton for fallback
       mainContent.innerHTML = `
-        <div class="panel" style="max-width:600px; margin: 4rem auto; text-align:center;">
-          <i data-lucide="alert-triangle" style="width:3rem; height:3rem; color:var(--danger); margin-bottom:1rem;"></i>
-          <h2>Failed to Load View</h2>
-          <p style="color:var(--text-secondary); margin: 1rem 0;">The requested view "${viewName}" could not be loaded dynamically. Please make sure the views/ directory contains the correct files.</p>
-          <button class="btn btn-primary" onclick="app.navigate('home')">Go back Home</button>
+        <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:400px; gap:1rem;">
+          <div style="border: 4px solid var(--border-color); border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
+          <div style="color:var(--text-secondary); font-weight:500;">Loading content...</div>
         </div>
+        <style>
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        </style>
       `;
-      lucide.createIcons();
+      try {
+        await fetchAndUpdate();
+      } catch (err) {
+        console.error(err);
+        this.renderErrorView(mainContent, viewName);
+      } finally {
+        document.body.classList.remove("view-loading");
+      }
+    } else {
+      try {
+        const transition = document.startViewTransition(async () => {
+          await fetchAndUpdate();
+        });
+
+        transition.finished.finally(() => {
+          document.body.classList.remove("view-loading");
+          // MANDATORY Accessibility Routing: Route focus to page header or container
+          const heading = mainContent.querySelector("h1, h2");
+          if (heading) {
+            heading.setAttribute("tabindex", "-1");
+            heading.focus();
+          } else {
+            mainContent.setAttribute("tabindex", "-1");
+            mainContent.focus();
+          }
+        });
+      } catch (err) {
+        console.error(err);
+        document.body.classList.remove("view-loading");
+        this.renderErrorView(mainContent, viewName);
+      }
     }
+  }
+
+  renderErrorView(mainContent, viewName) {
+    mainContent.innerHTML = `
+      <div class="panel" style="max-width:600px; margin: 4rem auto; text-align:center;">
+        <i data-lucide="alert-triangle" style="width:3rem; height:3rem; color:var(--danger); margin-bottom:1rem;"></i>
+        <h2>Failed to Load View</h2>
+        <p style="color:var(--text-secondary); margin: 1rem 0;">The requested view "${viewName}" could not be loaded dynamically. Please make sure the views/ directory contains the correct files.</p>
+        <button class="btn btn-primary" onclick="app.navigate('home')">Go back Home</button>
+      </div>
+    `;
+    lucide.createIcons();
   }
 
   // Toast System

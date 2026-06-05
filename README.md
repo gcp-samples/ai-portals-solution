@@ -14,8 +14,13 @@ The Apigee AI Portal is a modern, agent-centric storefront template designed for
 ### Prerequisites
 
 - Go 1.26.1 or later
-- Google Cloud Project with Apigee and API Hub enabled
+- Google Cloud Project with Apigee and API Hub provisioned
 - Google Cloud SDK (gcloud) installed and authenticated
+
+### Cloud Shell Lab
+Use this lab to walk through the deployment.
+
+[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.png)](https://ssh.cloud.google.com/cloudshell/open?cloudshell_git_repo=https://github.com/gcp-samples/apigee-ai-portal&cloudshell_git_branch=main&cloudshell_workspace=.&cloudshell_tutorial=docs/TUTORIAL_PROXY.md)
 
 ### Deployment
 
