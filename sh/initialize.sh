@@ -1,14 +1,18 @@
 #!/bin/bash
 
-read -p "Enter your Google Cloud Project Id: " project_id
-read -p "Enter your Google Cloud Region: " region
+if [ -f "../.env" ]; then
+  source ../.env
+fi
+
+read -e -i "$GOOGLE_CLOUD_PROJECT" -p "Enter your Google Cloud Project Id: " project_id
+read -e -i "$GOOGLE_CLOUD_LOCATION" -p "Enter your Google Cloud Region: " region
 
 echo "Saving $project_id and $region..."
 
-echo "export GOOGLE_CLOUD_PROJECT=$project_id" >> .env
+echo "export GOOGLE_CLOUD_PROJECT=$project_id" > .env
 echo "export GOOGLE_CLOUD_LOCATION=$region" >> .env
 
-npm i apigee-templater -g
+source .env
 
 curl -X POST "https://apihub.googleapis.com/v1/projects/$GOOGLE_CLOUD_PROJECT/locations/$GOOGLE_CLOUD_LOCATION/attributes?attributeId=category" \
 -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
@@ -71,3 +75,16 @@ curl -X POST "https://apihub.googleapis.com/v1/projects/$GOOGLE_CLOUD_PROJECT/lo
   "cardinality": 1
 }
 EOF
+
+gcloud iam service-accounts create "portal-service" --project="$GOOGLE_CLOUD_PROJECT" \
+    --description="Portal service account" \
+    --display-name="Portal Service Account"
+sleep 10
+gcloud projects add-iam-policy-binding $GOOGLE_CLOUD_PROJECT \
+    --member="serviceAccount:ai-service@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" \
+    --role="roles/apigee.developerAdmin"
+gcloud projects add-iam-policy-binding $GOOGLE_CLOUD_PROJECT \
+    --member="serviceAccount:ai-service@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" \
+    --role="roles/apihub.viewer"
+
+source ./sh/reinitialize.sh

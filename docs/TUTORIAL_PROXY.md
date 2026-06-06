@@ -18,10 +18,16 @@ Enter your values by running this script:
 source ./sh/initialize.sh
 ```
 
+Run this script if **you've already initialized,** and just want to reload the variables:
+
+```sh
+source ./sh/reinitialize.sh
+```
+
 ## Deploy Apigee Proxy
 We will use an Apigee proxy as the BFF for our portal frontend.
 Run this command to deploy the proxy:
 
 ```sh
-aft -i ./proxies/REST-Portals.yaml -o "$GOOGLE_CLOUD_PROJECT:"
+aft -i ./proxies/REST-Portals.yaml -o "$GOOGLE_CLOUD_PROJECT:REST-Portals:$APIGEE_ENVIRONMENT:$PROXY_SA"
 ```
