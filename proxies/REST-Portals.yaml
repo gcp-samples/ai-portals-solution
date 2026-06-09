@@ -14,13 +14,13 @@ parameters:
   - name: AUTH_API_KEY
     displayName: AUTH_API_KEY
     description: Configuration input for AUTH_API_KEY
-    default:
+    default: null
     examples: []
     maps: {}
   - name: AUTH_DOMAIN
     displayName: AUTH_DOMAIN
     description: Configuration input for AUTH_DOMAIN
-    default:
+    default: null
     examples: []
     maps: {}
 defaultEndpoint:
@@ -153,6 +153,10 @@ policies:
 
           \    var authDomain =
           context.getVariable(\"propertyset.portals.AUTH_DOMAIN\");
+
+
+          \    if (!authDomain) authDomain =
+          context.getVariable(\"organization.name\") + \".firebaseapp.com\";
 
 
           \    if (match) {
