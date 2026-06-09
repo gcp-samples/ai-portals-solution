@@ -81,38 +81,46 @@ EOF
 # Create IAM service account and assign roles
 if ! gcloud iam service-accounts describe portal-service@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com 2>/dev/null | grep -q "description: Portal service account"; then
   gcloud iam service-accounts create "portal-service" --project="$GOOGLE_CLOUD_PROJECT" \
-      --description="Portal service account" \
+      --description="Portal Service Account" \
       --display-name="Portal Service Account"
   sleep 10
   gcloud projects add-iam-policy-binding $GOOGLE_CLOUD_PROJECT \
-      --member="serviceAccount:ai-service@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" \
+      --member="serviceAccount:portal-service@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" \
       --role="roles/apigee.developerAdmin"
   gcloud projects add-iam-policy-binding $GOOGLE_CLOUD_PROJECT \
-      --member="serviceAccount:ai-service@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" \
+      --member="serviceAccount:portal-service@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" \
       --role="roles/apihub.viewer"
+  gcloud iam service-accounts add-iam-policy-binding \
+    portal-service@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com \
+    --member="user:$(gcloud config get-value account 2>/dev/null)" \
+    --role="roles/iam.serviceAccountTokenCreator" --project $GOOGLE_CLOUD_PROJECT
+  PROJECT_NUMBER=$(gcloud projects describe $GOOGLE_CLOUD_PROJECT --format="value(projectNumber)")
+  gcloud iam service-accounts add-iam-policy-binding \
+    portal-service@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com \
+    --member="serviceAccount:service-$PROJECT_NUMBER@gcp-sa-apigee.iam.gserviceaccount.com" \
+    --role="roles/iam.serviceAccountTokenCreator" --project $GOOGLE_CLOUD_PROJECT
 fi
 
 # Initialize Identity Platform
-gcloud services enable identitytoolkit.googleapis.com --project $GOOGLE_CLOUD_PROJECT
-sleep 5
-curl -X POST "https://identitytoolkit.googleapis.com/v2/projects/$GOOGLE_CLOUD_PROJECT/identityPlatform:initializeAuth" \
-  -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
-  -H "x-goog-user-project: $GOOGLE_CLOUD_PROJECT"
+# gcloud services enable identitytoolkit.googleapis.com --project $GOOGLE_CLOUD_PROJECT
+# sleep 5
+# curl -X POST "https://identitytoolkit.googleapis.com/v2/projects/$GOOGLE_CLOUD_PROJECT/identityPlatform:initializeAuth" \
+#   -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
+#   -H "x-goog-user-project: $GOOGLE_CLOUD_PROJECT"
 
-cat << EOF > .firebaserc
-{
-  "projects": {
-    "default": "$GOOGLE_CLOUD_PROJECT"
-  }
-}
-EOF
+# cat << EOF > .firebaserc
+# {
+#   "projects": {
+#     "default": "$GOOGLE_CLOUD_PROJECT"
+#   }
+# }
+# EOF
 
 cat << EOF > ./public/CONFIG.local.json
 {
-  demoMode: true,
-  portalId: "demo",
-  apiHost: "https://$APIGEE_HOST",
-  portalConfig: null,
+  "demoMode": true,
+  "portalId": "demo",
+  "apiHost": "https://$APIGEE_HOST"
 }
 EOF
 

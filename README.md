@@ -2,6 +2,8 @@
 
 The Apigee AI Portal is a modern, agent-centric storefront template designed for Google Cloud AI and API products. It provides a robust and flexible foundation for building sophisticated API developer portals that leverage the power of Google Cloud's AI ecosystem.
 
+[![Apigee AI Portal](https://amalbagee.web.app/apigee/ai-portal1.png)](https://amalbagee.web.app/apigee/ai-portal1.png)
+
 ## Key Advantages
 
 *   **Flexible Backend Options**: Deploy with ease using either **Cloud Run** for a serverless experience or as an **Apigee Proxy** for integrated API management.
@@ -13,30 +15,17 @@ The Apigee AI Portal is a modern, agent-centric storefront template designed for
 
 ### Prerequisites
 
-- Go 1.26.1 or later
-- Google Cloud Project with Apigee and API Hub provisioned
-- Google Cloud SDK (gcloud) installed and authenticated
+- Google Cloud Project, Apigee, API Hub, and Identity Platform provisioned.
+- Google Cloud SDK (gcloud) installed and authenticated, or access to [Cloud Shell](https://docs.cloud.google.com/shell/docs).
 
 ### Cloud Shell Lab
 Use this lab to walk through the deployment.
 
 [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.png)](https://ssh.cloud.google.com/cloudshell/open?cloudshell_git_repo=https://github.com/gcp-samples/apigee-ai-portal&cloudshell_git_branch=main&cloudshell_workspace=.&cloudshell_tutorial=docs/TUTORIAL_PROXY.md)
 
-### Deployment
-
-You can use the provided deployment scripts in the `sh/` directory:
-
-```bash
-# Setup the environment (Initializes API Hub attributes)
-./sh/setup.sh
-
-# Deploy to Cloud Run
-./sh/deploy.sh
-```
-
 ## Customization
 
-The portal is designed to be easily themed and extended. You can create new themes or modify existing ones using AI agents to match your brand and functional requirements. For automated modifications, tools like **Gemini CLI** are highly recommended.
+The portal is designed to be easily themed and extended. You can create new themes or modify existing ones using AI agents to match your brand and functional requirements. For automated modifications, tools like **Anitgravity** are highly recommended.
 
 ## License
 
