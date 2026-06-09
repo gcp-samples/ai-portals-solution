@@ -25,6 +25,20 @@ class AppPortal {
 
   async init() {
     this.initialLoad = true;
+
+    // Load local config overrides if present
+    try {
+      const response = await fetch("/CONFIG.local.json");
+      if (response.ok) {
+        const localConfig = await response.json();
+        Object.assign(CONFIG, localConfig);
+        this.codeDefaultDemoMode = CONFIG.demoMode;
+        console.log("Loaded CONFIG.local.json overrides:", localConfig);
+      }
+    } catch (e) {
+      console.log("No CONFIG.local.json found or failed to parse, using default configuration.");
+    }
+
     this.loadSettingsFromStorage();
     this.setupTheme();
     this.setupEventListeners();

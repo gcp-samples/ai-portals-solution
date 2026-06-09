@@ -2,3 +2,5 @@
 data
 __debug*
 *.local.*
+firebase-debug.log
+.firebaserc
