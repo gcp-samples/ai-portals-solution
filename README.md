@@ -1,15 +1,16 @@
 # Apigee AI Portal
 
-The Apigee AI Portal is a modern, agent-centric storefront template designed for Google Cloud AI and API products. It provides a robust and flexible foundation for building sophisticated API developer portals that leverage the power of Google Cloud's AI ecosystem.
+The **Apigee AI Portal** is a modern, agent-centric storefront template created with **[Antigravity CLI](https://antigravity.google/)** and designed for Google Cloud AI and API products, but also for any API products. It provides a robust and flexible foundation for building sophisticated API developer portals that leverage the power of Google Cloud's AI ecosystem.
 
 [![Apigee AI Portal](https://amalbagee.web.app/apigee/ai-portal1.png)](https://amalbagee.web.app/apigee/ai-portal1.png)
 
 ## Key Advantages
 
-*   **Flexible Backend Options**: Deploy with ease using either **Cloud Run** for a serverless experience or as an **Apigee Proxy** for integrated API management.
-*   **Seamless Integration**: Designed to integrate flawlessly with **Apigee X** and **Apigee hybrid** APIs, providing a unified management and discovery experience.
-*   **Agentic Customization**: Built for high extensibility, the portal can be easily customized using **Antigravity**, **Gemini CLI**, or other agentic coding solutions, enabling rapid iteration and AI-driven development.
-*   **Enterprise-Grade Monitoring**: Fully supported through **Google Cloud Monitoring**, ensuring you have deep visibility into portal performance and usage patterns.
+*   **Flexible Backend Options**: Deploy with ease using either **[Cloud Run](https://cloud.google.com/run)** for a serverless experience or as an **Apigee Proxy** for integrated API management.
+* Leverages **[Google Cloud Identity Platform](https://cloud.google.com/security/products/identity-platform)** for powerful and flexible end-user authentication, with support for OIDC, Google, SAML, and many other identity providers.
+*   **Seamless Integration**: Designed to integrate flawlessly with **[Apigee X](https://cloud.google.com/apigee)** and **Apigee hybrid** APIs, providing a unified management and discovery experience.
+*   **Agentic Customization**: Built for high extensibility, the portal can be easily customized using **[Antigravity](https://antigravity.google)**, **Gemini CLI**, or other agentic coding solutions, enabling rapid iteration and AI-driven development.
+*   **Enterprise-Grade Monitoring**: Fully supported through **[Google Cloud Monitoring](https://cloud.google.com/monitoring)**, ensuring you have deep visibility into portal performance and usage patterns.
 
 ## Getting Started
 
