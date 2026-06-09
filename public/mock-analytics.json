@@ -3571,7 +3571,7 @@
         {
           "dimensions": [
             {
-              "individualNames": ["AI-VertexClaude"],
+              "individualNames": ["AI-Claude"],
               "metrics": [
                 {
                   "name": "sum(message_count)",
@@ -4042,10 +4042,10 @@
                   ]
                 }
               ],
-              "name": "AI-VertexClaude"
+              "name": "AI-Claude"
             },
             {
-              "individualNames": ["AI-VertexQwen"],
+              "individualNames": ["AI-Qwen"],
               "metrics": [
                 {
                   "name": "sum(message_count)",
@@ -4468,10 +4468,10 @@
                   ]
                 }
               ],
-              "name": "AI-VertexQwen"
+              "name": "AI-Qwen"
             },
             {
-              "individualNames": ["AI-VertexGemini"],
+              "individualNames": ["AI-Gemini"],
               "metrics": [
                 {
                   "name": "sum(message_count)",
@@ -4990,7 +4990,7 @@
                   ]
                 }
               ],
-              "name": "AI-VertexGemini"
+              "name": "AI-Gemini"
             },
             {
               "individualNames": ["AI Product"],

@@ -16,7 +16,7 @@
     {
       "categories": ["Models"],
       "displayDescription": "Qwen model access.",
-      "displayName": "AI-VertexQwen",
+      "displayName": "AI-Qwen",
       "displayStyle": "REST",
       "endpoints": ["https://34-111-185-182.nip.io/qwen"],
       "id": "ai-vertexqwen-1",
@@ -29,7 +29,7 @@
     {
       "categories": ["Models"],
       "displayDescription": "Kimi model access.",
-      "displayName": "AI-VertexKimi",
+      "displayName": "AI-Kimi",
       "displayStyle": "REST",
       "endpoints": ["https://34-111-185-182.nip.io/kimi"],
       "id": "ai-vertexkimi-1",
@@ -42,7 +42,7 @@
     {
       "categories": ["Models"],
       "displayDescription": "DeepSeek model access.",
-      "displayName": "AI-VertexDeepSeek",
+      "displayName": "AI-DeepSeek",
       "displayStyle": "REST",
       "endpoints": ["https://34-111-185-182.nip.io/deepseek"],
       "id": "ai-vertexdeepseek-1",
@@ -55,7 +55,7 @@
     {
       "categories": ["Models"],
       "displayDescription": "Gemini model access.",
-      "displayName": "AI-VertexGemini",
+      "displayName": "AI-Gemini",
       "displayStyle": "REST",
       "endpoints": ["https://34-111-185-182.nip.io/gemini"],
       "id": "ai-vertexgemini-1",
@@ -68,7 +68,7 @@
     {
       "categories": ["Models"],
       "displayDescription": "Claude AI model access",
-      "displayName": "AI-VertexClaude",
+      "displayName": "AI-Claude",
       "displayStyle": "REST",
       "endpoints": ["https://34-111-185-182.nip.io/claude"],
       "id": "ai-vertexclaude-1",

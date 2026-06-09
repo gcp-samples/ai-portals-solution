@@ -1,4 +1,7 @@
 # Apigee AI Portal Tutorial
+
+<walkthrough-tutorial-duration duration="30"></walkthrough-tutorial-duration>
+
 This tutorial will guide you through deploying the Apigee AI Portal using an Apigee proxy as the BFF, and Firebase Hosting as the static web hosting, but of course any static hosting service would also work fine.
 
 ## Prerequisites
@@ -75,3 +78,11 @@ firebase deploy
 Click on the **Hosting URL** that is displayed in the shell to open the portal. By default the portal is in **DEMO MODE**, however you can now click at the bottom and switch to **Cloud Identity Platform** to use the production APIs.
 
 [![Portal Production APIs](https://amalbagee.web.app/apigee/ai-portal2.png)](https://amalbagee.web.app/apigee/ai-portal2.png)
+
+## Conclusion
+
+<walkthrough-conclusion-trophy></walkthrough-conclusion-trophy>
+
+Congratulations, you've completed the AI Portal deployment lab! Play around with the products and subscriptions, and see how you can expand and manage the AI products offered through the portal to users and agents.
+
+<walkthrough-inline-feedback></walkthrough-inline-feedback>

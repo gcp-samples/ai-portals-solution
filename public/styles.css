@@ -134,6 +134,11 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.25;
 }
 
+/* Accessibility focus outline reset for programmatically focused non-interactive elements */
+[tabindex="-1"]:focus {
+  outline: none !important;
+}
+
 /* Layout Elements */
 header {
   position: sticky;

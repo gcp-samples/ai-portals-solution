@@ -142,7 +142,9 @@ class AppPortal {
     document.getElementById("theme-toggle").addEventListener("click", () => this.toggleTheme());
 
     // Auth Modal actions
-    document.getElementById("btn-show-login")?.addEventListener("click", () => this.openAuthModal());
+    document
+      .getElementById("btn-show-login")
+      ?.addEventListener("click", () => this.openAuthModal());
     document
       .getElementById("btn-close-auth")
       .addEventListener("click", () => this.closeAuthModal());
@@ -339,6 +341,11 @@ class AppPortal {
       }
       dialog.showModal();
       this.setAuthTab("login");
+
+      const emailInput = document.getElementById("auth-email");
+      if (emailInput) {
+        emailInput.focus();
+      }
     }
   }
 
@@ -374,7 +381,12 @@ class AppPortal {
     const passwordInput = document.getElementById("auth-password");
     if (passwordInput) {
       passwordInput.required = !CONFIG.demoMode;
-      passwordInput.placeholder = CONFIG.demoMode ? "Optional in Demo mode" : "••••••••";
+      passwordInput.placeholder = CONFIG.demoMode ? "Optional in Demo mode" : "";
+    }
+
+    const emailInput = document.getElementById("auth-email");
+    if (emailInput && CONFIG.demoMode && isLogin) {
+      emailInput.value = "test@example.com";
     }
   }
 
@@ -645,6 +657,20 @@ class AppPortal {
       `;
       try {
         await fetchAndUpdate();
+        // Accessibility Routing
+        const autofocusEl = mainContent.querySelector("[autofocus]");
+        if (autofocusEl) {
+          autofocusEl.focus();
+        } else {
+          const heading = mainContent.querySelector("h1, h2");
+          if (heading) {
+            heading.setAttribute("tabindex", "-1");
+            heading.focus();
+          } else {
+            mainContent.setAttribute("tabindex", "-1");
+            mainContent.focus();
+          }
+        }
       } catch (err) {
         console.error(err);
         this.renderErrorView(mainContent, viewName);
@@ -659,14 +685,19 @@ class AppPortal {
 
         transition.finished.finally(() => {
           document.body.classList.remove("view-loading");
-          // MANDATORY Accessibility Routing: Route focus to page header or container
-          const heading = mainContent.querySelector("h1, h2");
-          if (heading) {
-            heading.setAttribute("tabindex", "-1");
-            heading.focus();
+          // MANDATORY Accessibility Routing: Route focus to autofocus element, page header, or container
+          const autofocusEl = mainContent.querySelector("[autofocus]");
+          if (autofocusEl) {
+            autofocusEl.focus();
           } else {
-            mainContent.setAttribute("tabindex", "-1");
-            mainContent.focus();
+            const heading = mainContent.querySelector("h1, h2");
+            if (heading) {
+              heading.setAttribute("tabindex", "-1");
+              heading.focus();
+            } else {
+              mainContent.setAttribute("tabindex", "-1");
+              mainContent.focus();
+            }
           }
         });
       } catch (err) {

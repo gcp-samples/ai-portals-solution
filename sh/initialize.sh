@@ -108,13 +108,13 @@ fi
 #   -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
 #   -H "x-goog-user-project: $GOOGLE_CLOUD_PROJECT"
 
-# cat << EOF > .firebaserc
-# {
-#   "projects": {
-#     "default": "$GOOGLE_CLOUD_PROJECT"
-#   }
-# }
-# EOF
+cat << EOF > .firebaserc
+{
+  "projects": {
+    "default": "$GOOGLE_CLOUD_PROJECT"
+  }
+}
+EOF
 
 cat << EOF > ./public/CONFIG.local.json
 {
