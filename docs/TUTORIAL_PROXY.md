@@ -72,7 +72,7 @@ In this lab we will use [Firebase Hosting](https://firebase.google.com/docs/host
 
 Run this command to deploy the portal to **Firebase Hosting**:
 ```sh
-firebase deploy
+firebase deploy --project $GOOGLE_CLOUD_PROJECT
 ```
 
 Click on the **Hosting URL** that is displayed in the shell to open the portal. By default the portal is in **DEMO MODE**, however you can now click at the bottom and switch to **Cloud Identity Platform** to use the production APIs.
