@@ -27,6 +27,17 @@
         </div>
       </div>
       
+      <!-- Pricing Packages Section -->
+      <div class="panel detail-pricing-panel" id="detail-pricing-panel" style="display:none; margin-top:2rem;">
+        <h3 style="margin-bottom:1.5rem; display:flex; align-items:center; gap:0.5rem; font-size:1.25rem;">
+          <i data-lucide="circle-dollar-sign" style="width:1.25rem; height:1.25rem; color:var(--primary);"></i>
+          Available Pricing Packages
+        </h3>
+        <div class="pricing-grid" id="detail-pricing-list">
+          <!-- Packages dynamically rendered here -->
+        </div>
+      </div>
+      
       <!-- Scalar OpenAPI Spec Section -->
       <div class="panel detail-spec-panel" id="detail-spec-panel" style="display:none; margin-top:2rem;">
         <h3 style="margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem;">
@@ -65,11 +76,17 @@
           </div>
           
           <div id="sub-status-subscribe-box">
+            <h4 style="font-size:0.875rem; margin-bottom:0.75rem;">Select Package Tier</h4>
+            <div class="auth-form-group" style="margin-bottom:1rem;">
+              <select id="sub-package-select" class="input-control select-control" style="width:100%; font-size:0.9rem;">
+                <option value="">-- Choose Package --</option>
+              </select>
+            </div>
+
             <h4 style="font-size:0.875rem; margin-bottom:0.75rem;">Add to Application</h4>
             <div class="auth-form-group" style="margin-bottom:1rem;">
-              <select id="sub-app-select" class="input-control select-control" style="width:100%; font-size:0.9rem;">
+              <select id="sub-app-select" class="input-control select-control" style="width:100%; font-size:0.9rem;" disabled>
                 <option value="">-- Choose Application --</option>
-                <!-- Dynamically filled with unsubscribed apps -->
               </select>
             </div>
             <button class="btn btn-primary" id="btn-subscribe-to-app" onclick="subscribeProductToSelectedApp()" style="width:100%; font-size:0.9rem;" disabled>
@@ -78,7 +95,7 @@
             
             <div class="auth-divider">or</div>
             
-            <button class="btn btn-secondary" onclick="app.navigate('apps')" style="width:100%; font-size:0.9rem;">
+            <button class="btn btn-secondary" id="btn-create-app-sub" onclick="openCreateAppSubModal()" style="width:100%; font-size:0.9rem;" disabled>
               Create New App
             </button>
           </div>
@@ -187,7 +204,117 @@
   max-height: 800px;
   overflow-y: auto;
 }
+
+/* Pricing Grid Styles */
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+.pricing-card {
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  background: var(--input-bg);
+  transition: all var(--transition-fast) ease-in-out;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+.pricing-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+}
+.pricing-card.selected {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.05);
+}
+.pricing-card.premium {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: linear-gradient(135deg, var(--input-bg) 0%, rgba(99, 102, 241, 0.03) 100%);
+}
+.pricing-card.premium:hover {
+  border-color: var(--primary);
+}
+.pricing-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 2rem;
+  background: var(--primary-light);
+  color: var(--primary);
+}
+.pricing-card.premium .pricing-badge {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+.pricing-header h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-color);
+}
+.pricing-header p {
+  font-size: 0.825rem;
+  color: var(--text-muted);
+  margin-bottom: 1.25rem;
+}
+.pricing-rates {
+  border-top: 1px solid var(--border-color);
+  padding-top: 1rem;
+  margin-top: auto;
+}
+.pricing-rate-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+.pricing-rate-item:last-child {
+  margin-bottom: 0;
+}
+.pricing-rate-label {
+  color: var(--text-secondary);
+}
+.pricing-rate-value {
+  font-weight: 600;
+  color: var(--text-color);
+}
 </style>
+
+<!-- Create App Dialog in Product Detail -->
+<dialog id="create-app-sub-dialog" class="auth-dialog" style="max-width:450px;">
+  <div class="auth-header">
+    <h3>Create App & Subscribe</h3>
+    <button class="close-btn" onclick="closeCreateAppSubModal()">
+      <i data-lucide="x" style="width:1.5rem; height:1.5rem;"></i>
+    </button>
+  </div>
+  <form id="create-app-sub-form" onsubmit="handleCreateAppSubSubmit(event)">
+    <div class="auth-form-group">
+      <label for="sub-new-app-name">Application Name</label>
+      <input type="text" id="sub-new-app-name" class="input-control" placeholder="My New Application" required autocomplete="off">
+    </div>
+    <div class="auth-form-group" style="margin-top:1rem;">
+      <label>Selected Package</label>
+      <div id="sub-new-app-package-display" style="font-weight:600; font-family:monospace; font-size:0.9rem; padding:0.5rem; background:var(--input-bg); border:1px solid var(--border-color); border-radius:0.375rem; color:var(--primary);">
+        <!-- Selected package display -->
+      </div>
+    </div>
+    <div style="margin-top:1.5rem; display:flex; justify-content:flex-end; gap:1rem;">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeCreateAppSubModal()">Cancel</button>
+      <button type="submit" class="btn btn-primary btn-sm">Create & Subscribe</button>
+    </div>
+  </form>
+</dialog>
 
 <script>
 var currentProduct = null;
@@ -257,6 +384,101 @@ async function fetchProductDetails(productId) {
     if (currentProduct.displayStyle === 'MCP') icon = 'wrench';
     if (currentProduct.displayStyle === 'A2A') icon = 'bot';
     document.getElementById('detail-icon-box').innerHTML = `<i data-lucide="${icon}" style="width:2rem; height:2rem;"></i>`;
+    
+    // Render Pricing Packages
+    const pricingPanel = document.getElementById('detail-pricing-panel');
+    const pricingList = document.getElementById('detail-pricing-list');
+    
+    if (currentProduct.packages && currentProduct.packages.length > 0) {
+      pricingPanel.style.display = 'block';
+      let pricingHtml = '';
+      currentProduct.packages.forEach((pkg) => {
+        const isPremium = pkg.packageId.includes('premium') || pkg.packageId.includes('enterprise');
+        const badgeText = isPremium ? 'Premium' : 'Standard';
+        
+        let ratesHtml = '';
+        if (pkg.requestTokenPricePerMillion > 0 || pkg.responseTokenPricePerMillion > 0) {
+          ratesHtml = `
+            <div class="pricing-rate-item">
+              <span class="pricing-rate-label">Input / Million:</span>
+              <span class="pricing-rate-value">$${pkg.requestTokenPricePerMillion.toFixed(3)}</span>
+            </div>
+            <div class="pricing-rate-item">
+              <span class="pricing-rate-label">Output / Million:</span>
+              <span class="pricing-rate-value">$${pkg.responseTokenPricePerMillion.toFixed(3)}</span>
+            </div>
+          `;
+        } else {
+          ratesHtml = `
+            <div class="pricing-rate-item">
+              <span class="pricing-rate-label">Request / Thousand:</span>
+              <span class="pricing-rate-value">$${pkg.requestCallPricePerThousand.toFixed(3)}</span>
+            </div>
+            <div class="pricing-rate-item">
+              <span class="pricing-rate-label">Response / Thousand:</span>
+              <span class="pricing-rate-value">$${pkg.responseCallPricePerThousand.toFixed(3)}</span>
+            </div>
+          `;
+        }
+        
+        let limitsHtml = '';
+        if (pkg.tokenLimits && pkg.tokenLimits.length > 0) {
+          pkg.tokenLimits.forEach(tl => {
+            const limitStr = Number(tl.tokenLimit).toLocaleString();
+            limitsHtml += `
+              <div class="pricing-rate-item" style="font-size:0.8rem; margin-bottom:0.25rem;">
+                <span class="pricing-rate-label" style="display:flex; align-items:center; gap:0.25rem; font-size:0.775rem;">
+                  <i data-lucide="shield-alert" style="width:0.8rem; height:0.8rem; color:var(--primary);"></i>
+                  ${tl.type === 'USER' ? 'User' : 'Cost Center'} Limit:
+                </span>
+                <span class="pricing-rate-value" style="font-size:0.8rem;">${limitStr} T</span>
+              </div>
+              <div style="font-size:0.675rem; color:var(--text-muted); margin-top:-0.15rem; margin-bottom:0.5rem; text-align:right;">
+                Model: ${tl.modelName}
+              </div>
+            `;
+          });
+        }
+        if (pkg.callLimits && pkg.callLimits.length > 0) {
+          pkg.callLimits.forEach(cl => {
+            const limitStr = Number(cl.callLimit).toLocaleString();
+            limitsHtml += `
+              <div class="pricing-rate-item" style="font-size:0.8rem; margin-bottom:0.25rem;">
+                <span class="pricing-rate-label" style="display:flex; align-items:center; gap:0.25rem; font-size:0.775rem;">
+                  <i data-lucide="activity" style="width:0.8rem; height:0.8rem; color:var(--success);"></i>
+                  ${cl.type === 'USER' ? 'User' : 'Cost Center'} Calls:
+                </span>
+                <span class="pricing-rate-value" style="font-size:0.8rem;">${limitStr}</span>
+              </div>
+            `;
+          });
+        }
+        
+        const limitsContainer = limitsHtml ? `
+          <div class="pricing-limits" style="border-top:1px dashed var(--border-color); padding-top:0.75rem; margin-top:0.75rem;">
+            <h5 style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); margin-bottom:0.5rem; font-weight:600;">Operational Limits</h5>
+            ${limitsHtml}
+          </div>
+        ` : '';
+        
+        pricingHtml += `
+          <div class="pricing-card ${isPremium ? 'premium' : ''}" data-package-id="${pkg.packageId}" onclick="selectPricingPackage('${pkg.packageId}')">
+            <span class="pricing-badge">${badgeText}</span>
+            <div class="pricing-header">
+              <h4>${pkg.packageId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</h4>
+              <p>${isPremium ? 'Tailored for high-scale enterprise needs.' : 'Perfect for development and early testing.'}</p>
+            </div>
+            <div class="pricing-rates">
+              ${ratesHtml}
+            </div>
+            ${limitsContainer}
+          </div>
+        `;
+      });
+      pricingList.innerHTML = pricingHtml;
+    } else {
+      pricingPanel.style.display = 'none';
+    }
     
     // Handle OpenAPI Spec rendering via Scalar for REST style
     if (currentProduct.displayStyle === 'REST') {
@@ -376,8 +598,10 @@ async function handleSubscriptionStatusUI(productId) {
   const authBox = document.getElementById('sub-status-authenticated');
   const includedBox = document.getElementById('sub-status-included-box');
   const includedList = document.getElementById('subscribed-apps-list');
+  const packageSelect = document.getElementById('sub-package-select');
   const appSelect = document.getElementById('sub-app-select');
   const btnSub = document.getElementById('btn-subscribe-to-app');
+  const btnCreateSub = document.getElementById('btn-create-app-sub');
   
   loader.style.display = 'block';
   anonBox.style.display = 'none';
@@ -415,28 +639,69 @@ async function handleSubscriptionStatusUI(productId) {
     loader.style.display = 'none';
     authBox.style.display = 'block';
     
-    // Check which apps already have this product subscribed
-    const prodIdToCheck = currentProduct.productId || currentProduct.id;
-    const includedApps = [];
-    currentUnsubscribedApps = [];
+    // Fill Packages Dropdown
+    packageSelect.innerHTML = `<option value="">-- Choose Package --</option>`;
+    if (currentProduct.packages && currentProduct.packages.length > 0) {
+      currentProduct.packages.forEach(pkg => {
+        const displayName = pkg.packageId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        packageSelect.innerHTML += `<option value="${pkg.packageId}">${displayName}</option>`;
+      });
+    } else {
+      // Fallback to legacy product ID if no packages exist
+      const prodId = currentProduct.productId || currentProduct.id;
+      const displayName = prodId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      packageSelect.innerHTML += `<option value="${prodId}">${displayName}</option>`;
+    }
+    packageSelect.value = ""; // Reset package selection
     
+    // Wire up package onchange
+    packageSelect.onchange = onPackageSelectionChanged;
+    
+    // Check which apps already have this product/packages subscribed
+    const currentProductPackageIds = (currentProduct.packages || []).map(pkg => pkg.packageId);
+    if (currentProductPackageIds.length === 0) {
+      currentProductPackageIds.push(currentProduct.productId || currentProduct.id);
+    }
+    
+    const includedApps = [];
     userApps.forEach(a => {
-      const hasProduct = a.credentials && a.credentials.some(cred => cred.products && cred.products.includes(prodIdToCheck));
-      if (hasProduct) {
-        includedApps.push(a);
-      } else {
-        currentUnsubscribedApps.push(a);
+      const subscribedPackagesInApp = [];
+      if (a.credentials) {
+        a.credentials.forEach(cred => {
+          if (cred.products) {
+            cred.products.forEach(pId => {
+              if (currentProductPackageIds.includes(pId)) {
+                subscribedPackagesInApp.push(pId);
+              }
+            });
+          }
+        });
+      }
+      
+      if (subscribedPackagesInApp.length > 0) {
+        // Find human readable names for these packages
+        const packageNames = subscribedPackagesInApp.map(pId => {
+          const pkg = (currentProduct.packages || []).find(p => p.packageId === pId);
+          return pkg ? (pkg.packageId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')) : pId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        });
+        includedApps.push({
+          app: a,
+          packagesText: packageNames.join(', ')
+        });
       }
     });
     
-    // Fill subscribed apps
+    // Fill subscribed apps list
     if (includedApps.length > 0) {
       includedBox.style.display = 'block';
       let listHtml = '';
       includedApps.forEach(ia => {
         listHtml += `
-          <div class="sub-app-item" onclick="app.navigate('apps')">
-            <span>${ia.name}</span>
+          <div class="sub-app-item" onclick="app.navigate('apps')" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+              <span style="font-weight: 500;">${ia.app.name}</span>
+              <span style="font-size: 0.75rem; opacity: 0.85;">Package: ${ia.packagesText}</span>
+            </div>
             <i data-lucide="arrow-up-right" style="width:1rem; height:1rem;"></i>
           </div>
         `;
@@ -446,22 +711,8 @@ async function handleSubscriptionStatusUI(productId) {
       includedBox.style.display = 'none';
     }
     
-    // Fill option box for subscribing
-    appSelect.innerHTML = `<option value="">-- Choose Application --</option>`;
-    if (currentUnsubscribedApps.length > 0) {
-      currentUnsubscribedApps.forEach(ua => {
-        appSelect.innerHTML += `<option value="${ua.id}">${ua.name}</option>`;
-      });
-      appSelect.disabled = false;
-      
-      appSelect.onchange = function() {
-        btnSub.disabled = !appSelect.value;
-      };
-    } else {
-      appSelect.innerHTML += `<option value="" disabled>All apps subscribed!</option>`;
-      appSelect.disabled = true;
-      btnSub.disabled = true;
-    }
+    // Trigger initial state change (this will disable app select & subscribe/create buttons since no package is selected yet)
+    onPackageSelectionChanged();
     
     lucide.createIcons();
   } catch (err) {
@@ -470,15 +721,86 @@ async function handleSubscriptionStatusUI(productId) {
   }
 }
 
-async function subscribeProductToSelectedApp() {
+function onPackageSelectionChanged() {
+  const packageSelect = document.getElementById('sub-package-select');
   const appSelect = document.getElementById('sub-app-select');
+  const btnSub = document.getElementById('btn-subscribe-to-app');
+  const btnCreateSub = document.getElementById('btn-create-app-sub');
+  
+  const selectedPackageId = packageSelect.value;
+  
+  // Sync card styles to match the selection
+  syncPricingCardStyles(selectedPackageId);
+  
+  if (!selectedPackageId) {
+    appSelect.innerHTML = `<option value="">-- Choose Application --</option>`;
+    appSelect.disabled = true;
+    btnSub.disabled = true;
+    btnCreateSub.disabled = true;
+    return;
+  }
+  
+  // Package is selected! Enable the Create App button.
+  btnCreateSub.disabled = false;
+  
+  // Filter developer apps that don't have the selected packageId yet
+  const availableApps = (app.apps || []).filter(a => {
+    const hasPackage = a.credentials && a.credentials.some(cred =>
+      cred.products && cred.products.includes(selectedPackageId)
+    );
+    return !hasPackage;
+  });
+  
+  appSelect.innerHTML = `<option value="">-- Choose Application --</option>`;
+  if (availableApps.length > 0) {
+    availableApps.forEach(ua => {
+      appSelect.innerHTML += `<option value="${ua.id}">${ua.name}</option>`;
+    });
+    appSelect.disabled = false;
+  } else {
+    appSelect.innerHTML += `<option value="" disabled>All apps subscribed to this package!</option>`;
+    appSelect.disabled = true;
+  }
+  
+  // Evaluate the subscribe to app button state
+  btnSub.disabled = !appSelect.value;
+  
+  appSelect.onchange = function() {
+    btnSub.disabled = !appSelect.value;
+  };
+}
+
+function selectPricingPackage(packageId) {
+  const packageSelect = document.getElementById('sub-package-select');
+  if (!packageSelect) return;
+  
+  // Update dropdown value and trigger selection state sync
+  packageSelect.value = packageId;
+  onPackageSelectionChanged();
+}
+
+function syncPricingCardStyles(selectedPackageId) {
+  const cards = document.querySelectorAll('#detail-pricing-list .pricing-card');
+  cards.forEach(card => {
+    if (card.getAttribute('data-package-id') === selectedPackageId) {
+      card.classList.add('selected');
+    } else {
+      card.classList.remove('selected');
+    }
+  });
+}
+
+async function subscribeProductToSelectedApp() {
+  const packageSelect = document.getElementById('sub-package-select');
+  const appSelect = document.getElementById('sub-app-select');
+  
+  const packageId = packageSelect.value;
   const appId = appSelect.value;
-  if (!appId || !currentProduct) return;
+  
+  if (!packageId || !appId || !currentProduct) return;
   
   const targetApp = app.apps.find(a => a.id === appId);
   if (!targetApp) return;
-  
-  const prodId = currentProduct.productId || currentProduct.id;
   
   // Make sure products array exists in credentials
   if (!targetApp.credentials || targetApp.credentials.length === 0) {
@@ -488,11 +810,14 @@ async function subscribeProductToSelectedApp() {
     targetApp.credentials[0].products = [];
   }
   
-  // Push product
-  targetApp.credentials[0].products.push(prodId);
+  // Push packageId
+  if (!targetApp.credentials[0].products.includes(packageId)) {
+    targetApp.credentials[0].products.push(packageId);
+  }
   
   try {
     app.showToast("Adding product subscription...", "info");
+    const prodId = currentProduct.productId || currentProduct.id;
     
     if (CONFIG.demoMode) {
       // Save locally
@@ -506,14 +831,138 @@ async function subscribeProductToSelectedApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(targetApp)
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Server rejected subscription update');
+      }
       
       app.showToast(`Subscribed successfully to ${targetApp.name}!`, "success");
       await handleSubscriptionStatusUI(prodId);
     }
   } catch (err) {
     console.error(err);
-    app.showToast("Failed to save subscription update.", "error");
+    app.showToast(err.message || "Failed to save subscription update.", "error");
   }
+}
+
+function openCreateAppSubModal() {
+  const packageSelect = document.getElementById('sub-package-select');
+  const packageId = packageSelect.value;
+  if (!packageId) {
+    app.showToast("Please select a package tier first", "warning");
+    return;
+  }
+  
+  const packageDisplayName = packageId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  document.getElementById('sub-new-app-package-display').textContent = packageDisplayName;
+  
+  // Clear field
+  document.getElementById('sub-new-app-name').value = '';
+  
+  const dialog = document.getElementById('create-app-sub-dialog');
+  if (dialog) {
+    dialog.showModal();
+    lucide.createIcons();
+  }
+}
+
+function closeCreateAppSubModal() {
+  const dialog = document.getElementById('create-app-sub-dialog');
+  if (dialog) {
+    dialog.close();
+  }
+}
+
+async function handleCreateAppSubSubmit(event) {
+  event.preventDefault();
+  
+  const name = document.getElementById('sub-new-app-name').value.trim();
+  const packageSelect = document.getElementById('sub-package-select');
+  const packageId = packageSelect.value;
+  
+  if (!name || !packageId) {
+    app.showToast("Please enter application name and ensure package is selected.", "warning");
+    return;
+  }
+  
+  try {
+    app.showToast("Creating application and subscribing...", "info");
+    const prodId = currentProduct.productId || currentProduct.id;
+    
+    if (CONFIG.demoMode) {
+      const fakeId = generateUUID();
+      const fakeClientId = generateFakeKey(48);
+      const fakeClientSecret = generateFakeKey(64);
+      
+      const newApp = {
+        id: fakeId,
+        name: name,
+        description: "Created via product detail subscription.",
+        credentials: [
+          {
+            clientId: fakeClientId,
+            clientSecret: fakeClientSecret,
+            products: [packageId]
+          }
+        ]
+      };
+      
+      app.apps.push(newApp);
+      localStorage.setItem('prism_apps_demo', JSON.stringify(app.apps));
+      
+      app.showToast(`Application "${name}" created and subscribed successfully!`, "success");
+      closeCreateAppSubModal();
+      document.getElementById('create-app-sub-form').reset();
+      await handleSubscriptionStatusUI(prodId);
+    } else {
+      // Server Post request
+      const payload = {
+        name: name,
+        description: "Created via product detail subscription.",
+        credentials: [
+          {
+            clientId: "",
+            clientSecret: "",
+            products: [packageId]
+          }
+        ]
+      };
+      
+      const res = await app.makeRequest(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${app.user.email}/apps`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Server rejected app creation');
+      }
+      
+      app.showToast(`Application "${name}" created and subscribed successfully!`, "success");
+      closeCreateAppSubModal();
+      document.getElementById('create-app-sub-form').reset();
+      await handleSubscriptionStatusUI(prodId);
+    }
+  } catch (err) {
+    console.error(err);
+    app.showToast(err.message || "Failed to create application.", "error");
+  }
+}
+
+// Helpers
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function generateFakeKey(length) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }
 </script>

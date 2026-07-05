@@ -1,0 +1,408 @@
+{
+  "apiProduct": [
+    {
+      "name": "Qwen admin_ Product",
+      "displayName": "Qwen admin_ Product",
+      "approvalType": "auto",
+      "attributes": [
+        {
+          "name": "access",
+          "value": "public"
+        }
+      ],
+      "environments": [
+        "dev"
+      ],
+      "createdAt": "1782215969081",
+      "lastModifiedAt": "1782215969081",
+      "operationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-Analytics",
+            "operations": [
+              {
+                "resource": "/"
+              }
+            ],
+            "quota": {}
+          }
+        ],
+        "operationConfigType": "proxy"
+      },
+      "llmOperationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-admin_-Qwen",
+            "llmOperations": [
+              {
+                "resource": "/",
+                "model": "qwen3-next-80b-a3b-thinking-maas"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "DeepSeek admin_ Product",
+      "displayName": "DeepSeek admin_ Product",
+      "approvalType": "auto",
+      "attributes": [
+        {
+          "name": "access",
+          "value": "public"
+        }
+      ],
+      "environments": [
+        "dev"
+      ],
+      "createdAt": "1782215967554",
+      "lastModifiedAt": "1782215967554",
+      "operationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-Analytics",
+            "operations": [
+              {
+                "resource": "/"
+              }
+            ],
+            "quota": {}
+          }
+        ],
+        "operationConfigType": "proxy"
+      },
+      "llmOperationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-admin_-DeepSeek",
+            "llmOperations": [
+              {
+                "resource": "/",
+                "model": "deepseek-v3.2-maas"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Claude admin_ Product",
+      "displayName": "Claude admin_ Product",
+      "approvalType": "auto",
+      "attributes": [
+        {
+          "name": "access",
+          "value": "public"
+        }
+      ],
+      "environments": [
+        "dev"
+      ],
+      "createdAt": "1782215966121",
+      "lastModifiedAt": "1782215966121",
+      "operationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-Analytics",
+            "operations": [
+              {
+                "resource": "/"
+              }
+            ],
+            "quota": {}
+          }
+        ],
+        "operationConfigType": "proxy"
+      },
+      "llmOperationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-admin_-Claude",
+            "llmOperations": [
+              {
+                "resource": "/",
+                "model": "claude-opus-4-7"
+              }
+            ],
+            "llmTokenQuota": {
+              "limit": "10000",
+              "interval": "5",
+              "timeUnit": "minute"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Gemini admin_ Product",
+      "displayName": "Gemini admin_ Product",
+      "approvalType": "auto",
+      "attributes": [
+        {
+          "name": "access",
+          "value": "public"
+        }
+      ],
+      "environments": [
+        "dev"
+      ],
+      "createdAt": "1782215964454",
+      "lastModifiedAt": "1782215964454",
+      "operationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-Analytics",
+            "operations": [
+              {
+                "resource": "/"
+              }
+            ],
+            "quota": {}
+          }
+        ],
+        "operationConfigType": "proxy"
+      },
+      "llmOperationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-admin_-Gemini",
+            "llmOperations": [
+              {
+                "resource": "/",
+                "model": "gemini-flash-latest"
+              }
+            ],
+            "llmTokenQuota": {
+              "limit": "10000",
+              "interval": "1",
+              "timeUnit": "minute"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Qwen Core Product",
+      "displayName": "Qwen Core Product",
+      "approvalType": "auto",
+      "attributes": [
+        {
+          "name": "access",
+          "value": "public"
+        }
+      ],
+      "environments": [
+        "dev"
+      ],
+      "createdAt": "1782189031645",
+      "lastModifiedAt": "1782189031645",
+      "operationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-Analytics",
+            "operations": [
+              {
+                "resource": "/"
+              }
+            ],
+            "quota": {}
+          }
+        ],
+        "operationConfigType": "proxy"
+      },
+      "llmOperationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-Core-Qwen",
+            "llmOperations": [
+              {
+                "resource": "/",
+                "model": "qwen3-next-80b-a3b-thinking-maas"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "DeepSeek Core Product",
+      "displayName": "DeepSeek Core Product",
+      "approvalType": "auto",
+      "attributes": [
+        {
+          "name": "access",
+          "value": "public"
+        }
+      ],
+      "environments": [
+        "dev"
+      ],
+      "createdAt": "1782189029828",
+      "lastModifiedAt": "1782189029828",
+      "operationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-Analytics",
+            "operations": [
+              {
+                "resource": "/"
+              }
+            ],
+            "quota": {}
+          }
+        ],
+        "operationConfigType": "proxy"
+      },
+      "llmOperationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-Core-DeepSeek",
+            "llmOperations": [
+              {
+                "resource": "/",
+                "model": "deepseek-v3.2-maas"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Claude Core Product",
+      "displayName": "Claude Core Product",
+      "approvalType": "auto",
+      "attributes": [
+        {
+          "name": "access",
+          "value": "public"
+        }
+      ],
+      "environments": [
+        "dev"
+      ],
+      "createdAt": "1782189028202",
+      "lastModifiedAt": "1782189028202",
+      "operationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-Analytics",
+            "operations": [
+              {
+                "resource": "/"
+              }
+            ],
+            "quota": {}
+          }
+        ],
+        "operationConfigType": "proxy"
+      },
+      "llmOperationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-Core-Claude",
+            "llmOperations": [
+              {
+                "resource": "/",
+                "model": "claude-opus-4-7"
+              }
+            ],
+            "llmTokenQuota": {
+              "limit": "10000",
+              "interval": "5",
+              "timeUnit": "minute"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Gemini Core Product",
+      "displayName": "Gemini Core Product",
+      "approvalType": "auto",
+      "attributes": [
+        {
+          "name": "access",
+          "value": "public"
+        }
+      ],
+      "environments": [
+        "dev"
+      ],
+      "createdAt": "1782189026344",
+      "lastModifiedAt": "1782189026344",
+      "operationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-Analytics",
+            "operations": [
+              {
+                "resource": "/"
+              }
+            ],
+            "quota": {}
+          }
+        ],
+        "operationConfigType": "proxy"
+      },
+      "llmOperationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "AI-Core-Gemini",
+            "llmOperations": [
+              {
+                "resource": "/",
+                "model": "gemini-flash-latest"
+              }
+            ],
+            "llmTokenQuota": {
+              "limit": "10000",
+              "interval": "1",
+              "timeUnit": "minute"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "test-product",
+      "displayName": "Test Product",
+      "approvalType": "auto",
+      "attributes": [
+        {
+          "name": "access",
+          "value": "public"
+        }
+      ],
+      "environments": [
+        "dev"
+      ],
+      "createdAt": "1781805193229",
+      "lastModifiedAt": "1781805193229",
+      "llmOperationGroup": {
+        "operationConfigs": [
+          {
+            "apiSource": "ai-auth",
+            "llmOperations": [
+              {
+                "resource": "/",
+                "methods": [
+                  "POST"
+                ],
+                "model": "gemini-flash-latest"
+              }
+            ],
+            "llmTokenQuota": {
+              "limit": "100",
+              "interval": "1",
+              "timeUnit": "minute"
+            }
+          }
+        ]
+      },
+      "llmQuota": "100",
+      "llmQuotaInterval": "1",
+      "llmQuotaTimeUnit": "minute"
+    }
+  ]
+}

@@ -1,0 +1,312 @@
+{
+  "apis": [
+    {
+      "name": "projects/ai-portals-solution/locations/europe-west1/apis/4a13f8fd-2e27-44a4-899e-ee02f0e4cb4d",
+      "displayName": "REST-Portals",
+      "versions": [
+        "projects/ai-portals-solution/locations/europe-west1/apis/4a13f8fd-2e27-44a4-899e-ee02f0e4cb4d/versions/43dd3f6a-5430-43d6-96e6-1704c0972653"
+      ],
+      "createTime": "2026-06-25T10:13:15.483503Z",
+      "updateTime": "2026-06-25T10:13:15.483503Z",
+      "fingerprint": "rest-portals",
+      "sourceMetadata": [
+        {
+          "pluginInstanceActionSource": {
+            "pluginInstance": "projects/ai-portals-solution/locations/europe-west1/plugins/system-apigee-x-and-hybrid/instances/529fe983-7ec3-4701-8a6b-b7eabd34de25",
+            "actionId": "sync-metadata"
+          },
+          "sourceType": "PLUGIN",
+          "originalResourceId": "organizations/ai-portals-solution/apis/REST-Portals",
+          "originalResourceCreateTime": "1970-01-01T00:00:00Z",
+          "originalResourceUpdateTime": "0001-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "projects/ai-portals-solution/locations/europe-west1/apis/49525caf-6b46-4b7f-b734-6355e22dad50",
+      "displayName": "ai-proxy-googlecloud",
+      "versions": [
+        "projects/ai-portals-solution/locations/europe-west1/apis/49525caf-6b46-4b7f-b734-6355e22dad50/versions/a0bb44ca-2729-4b36-bee6-8f6d676e5c7f"
+      ],
+      "createTime": "2026-06-23T15:20:32.294159Z",
+      "updateTime": "2026-06-23T15:20:32.294159Z",
+      "fingerprint": "ai-proxy-googlecloud",
+      "sourceMetadata": [
+        {
+          "pluginInstanceActionSource": {
+            "pluginInstance": "projects/ai-portals-solution/locations/europe-west1/plugins/system-apigee-x-and-hybrid/instances/529fe983-7ec3-4701-8a6b-b7eabd34de25",
+            "actionId": "sync-metadata"
+          },
+          "sourceType": "PLUGIN",
+          "originalResourceId": "organizations/ai-portals-solution/apis/ai-proxy-googlecloud",
+          "originalResourceCreateTime": "1970-01-01T00:00:00Z",
+          "originalResourceUpdateTime": "0001-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "projects/ai-portals-solution/locations/europe-west1/apis/1179556b-f66c-4642-95d1-dbe1363939bb",
+      "displayName": "AI-admin_-Claude",
+      "versions": [
+        "projects/ai-portals-solution/locations/europe-west1/apis/1179556b-f66c-4642-95d1-dbe1363939bb/versions/efa40e60-d69c-47a2-98ab-153f7ae52763"
+      ],
+      "createTime": "2026-06-23T10:29:39.666095Z",
+      "updateTime": "2026-06-23T10:29:39.666095Z",
+      "fingerprint": "ai-admin_-claude",
+      "sourceMetadata": [
+        {
+          "pluginInstanceActionSource": {
+            "pluginInstance": "projects/ai-portals-solution/locations/europe-west1/plugins/system-apigee-x-and-hybrid/instances/529fe983-7ec3-4701-8a6b-b7eabd34de25",
+            "actionId": "sync-metadata"
+          },
+          "sourceType": "PLUGIN",
+          "originalResourceId": "organizations/ai-portals-solution/apis/AI-admin_-Claude",
+          "originalResourceCreateTime": "1970-01-01T00:00:00Z",
+          "originalResourceUpdateTime": "0001-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "projects/ai-portals-solution/locations/europe-west1/apis/cb9e4616-1234-455f-8bd4-0dd79b529a6b",
+      "displayName": "AI-admin_-Qwen",
+      "versions": [
+        "projects/ai-portals-solution/locations/europe-west1/apis/cb9e4616-1234-455f-8bd4-0dd79b529a6b/versions/e275a17a-ce64-4473-9a18-790f6dd97b4e"
+      ],
+      "createTime": "2026-06-23T10:29:36.770447Z",
+      "updateTime": "2026-06-23T10:29:36.770447Z",
+      "fingerprint": "ai-admin_-qwen",
+      "sourceMetadata": [
+        {
+          "pluginInstanceActionSource": {
+            "pluginInstance": "projects/ai-portals-solution/locations/europe-west1/plugins/system-apigee-x-and-hybrid/instances/529fe983-7ec3-4701-8a6b-b7eabd34de25",
+            "actionId": "sync-metadata"
+          },
+          "sourceType": "PLUGIN",
+          "originalResourceId": "organizations/ai-portals-solution/apis/AI-admin_-Qwen",
+          "originalResourceCreateTime": "1970-01-01T00:00:00Z",
+          "originalResourceUpdateTime": "0001-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "projects/ai-portals-solution/locations/europe-west1/apis/e2d25708-9413-48c7-95f2-9aebc8145ebd",
+      "displayName": "AI-admin_-DeepSeek",
+      "versions": [
+        "projects/ai-portals-solution/locations/europe-west1/apis/e2d25708-9413-48c7-95f2-9aebc8145ebd/versions/8cb23fa5-513a-42a8-a97a-b9254666fade"
+      ],
+      "createTime": "2026-06-23T10:29:31.852271Z",
+      "updateTime": "2026-06-23T10:29:31.852271Z",
+      "fingerprint": "ai-admin_-deepseek",
+      "sourceMetadata": [
+        {
+          "pluginInstanceActionSource": {
+            "pluginInstance": "projects/ai-portals-solution/locations/europe-west1/plugins/system-apigee-x-and-hybrid/instances/529fe983-7ec3-4701-8a6b-b7eabd34de25",
+            "actionId": "sync-metadata"
+          },
+          "sourceType": "PLUGIN",
+          "originalResourceId": "organizations/ai-portals-solution/apis/AI-admin_-DeepSeek",
+          "originalResourceCreateTime": "1970-01-01T00:00:00Z",
+          "originalResourceUpdateTime": "0001-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "projects/ai-portals-solution/locations/europe-west1/apis/0ed132cd-23c7-4c2e-88f3-2acc26d0a5e6",
+      "displayName": "AI-admin_-Gemini",
+      "versions": [
+        "projects/ai-portals-solution/locations/europe-west1/apis/0ed132cd-23c7-4c2e-88f3-2acc26d0a5e6/versions/be6dc9d0-1f25-4266-a907-46d24b727092"
+      ],
+      "createTime": "2026-06-23T10:18:24.914495Z",
+      "updateTime": "2026-06-23T10:18:24.914495Z",
+      "fingerprint": "ai-admin_-gemini",
+      "sourceMetadata": [
+        {
+          "pluginInstanceActionSource": {
+            "pluginInstance": "projects/ai-portals-solution/locations/europe-west1/plugins/system-apigee-x-and-hybrid/instances/529fe983-7ec3-4701-8a6b-b7eabd34de25",
+            "actionId": "sync-metadata"
+          },
+          "sourceType": "PLUGIN",
+          "originalResourceId": "organizations/ai-portals-solution/apis/AI-admin_-Gemini",
+          "originalResourceCreateTime": "1970-01-01T00:00:00Z",
+          "originalResourceUpdateTime": "0001-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "projects/ai-portals-solution/locations/europe-west1/apis/1e193c93-7c49-4115-a20f-ac2b9f48c669",
+      "displayName": "ai-auth",
+      "versions": [
+        "projects/ai-portals-solution/locations/europe-west1/apis/1e193c93-7c49-4115-a20f-ac2b9f48c669/versions/a91563de-53c5-4217-92df-773cf0f37743"
+      ],
+      "createTime": "2026-06-23T07:57:43.657023Z",
+      "updateTime": "2026-06-23T07:57:43.657023Z",
+      "fingerprint": "ai-auth",
+      "sourceMetadata": [
+        {
+          "pluginInstanceActionSource": {
+            "pluginInstance": "projects/ai-portals-solution/locations/europe-west1/plugins/system-apigee-x-and-hybrid/instances/529fe983-7ec3-4701-8a6b-b7eabd34de25",
+            "actionId": "sync-metadata"
+          },
+          "sourceType": "PLUGIN",
+          "originalResourceId": "organizations/ai-portals-solution/apis/ai-auth",
+          "originalResourceCreateTime": "1970-01-01T00:00:00Z",
+          "originalResourceUpdateTime": "0001-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "projects/ai-portals-solution/locations/europe-west1/apis/3c84a437-95ff-4849-b10f-403d8c487aa5",
+      "displayName": "AI-Core-DeepSeek",
+      "versions": [
+        "projects/ai-portals-solution/locations/europe-west1/apis/3c84a437-95ff-4849-b10f-403d8c487aa5/versions/c4f419b5-89f0-45dd-9f79-ea5a88d47b6f"
+      ],
+      "createTime": "2026-06-23T07:57:29.447663Z",
+      "updateTime": "2026-06-23T07:57:29.447663Z",
+      "fingerprint": "ai-core-deepseek",
+      "sourceMetadata": [
+        {
+          "pluginInstanceActionSource": {
+            "pluginInstance": "projects/ai-portals-solution/locations/europe-west1/plugins/system-apigee-x-and-hybrid/instances/529fe983-7ec3-4701-8a6b-b7eabd34de25",
+            "actionId": "sync-metadata"
+          },
+          "sourceType": "PLUGIN",
+          "originalResourceId": "organizations/ai-portals-solution/apis/AI-Core-DeepSeek",
+          "originalResourceCreateTime": "1970-01-01T00:00:00Z",
+          "originalResourceUpdateTime": "0001-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "projects/ai-portals-solution/locations/europe-west1/apis/e0939798-21c2-4242-b6f6-3354aed809f2",
+      "displayName": "OAUTH-Token",
+      "versions": [
+        "projects/ai-portals-solution/locations/europe-west1/apis/e0939798-21c2-4242-b6f6-3354aed809f2/versions/a9c09711-4ac0-4c1d-971e-7f3b086a7bfb"
+      ],
+      "createTime": "2026-06-23T07:57:28.533231Z",
+      "updateTime": "2026-06-23T07:57:28.533231Z",
+      "fingerprint": "oauth-token",
+      "sourceMetadata": [
+        {
+          "pluginInstanceActionSource": {
+            "pluginInstance": "projects/ai-portals-solution/locations/europe-west1/plugins/system-apigee-x-and-hybrid/instances/529fe983-7ec3-4701-8a6b-b7eabd34de25",
+            "actionId": "sync-metadata"
+          },
+          "sourceType": "PLUGIN",
+          "originalResourceId": "organizations/ai-portals-solution/apis/OAUTH-Token",
+          "originalResourceCreateTime": "1970-01-01T00:00:00Z",
+          "originalResourceUpdateTime": "0001-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "projects/ai-portals-solution/locations/europe-west1/apis/f0278640-149c-4eec-a28e-dc9286339141",
+      "displayName": "AI-Core-Claude",
+      "versions": [
+        "projects/ai-portals-solution/locations/europe-west1/apis/f0278640-149c-4eec-a28e-dc9286339141/versions/dc3ae512-1128-49b0-8028-eff44134c9be"
+      ],
+      "createTime": "2026-06-23T07:57:27.696495Z",
+      "updateTime": "2026-06-23T07:57:27.696495Z",
+      "fingerprint": "ai-core-claude",
+      "sourceMetadata": [
+        {
+          "pluginInstanceActionSource": {
+            "pluginInstance": "projects/ai-portals-solution/locations/europe-west1/plugins/system-apigee-x-and-hybrid/instances/529fe983-7ec3-4701-8a6b-b7eabd34de25",
+            "actionId": "sync-metadata"
+          },
+          "sourceType": "PLUGIN",
+          "originalResourceId": "organizations/ai-portals-solution/apis/AI-Core-Claude",
+          "originalResourceCreateTime": "1970-01-01T00:00:00Z",
+          "originalResourceUpdateTime": "0001-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "projects/ai-portals-solution/locations/europe-west1/apis/a452121d-c0e2-43b7-8beb-f44418d2fc7f",
+      "displayName": "AI-Core-Gemini",
+      "versions": [
+        "projects/ai-portals-solution/locations/europe-west1/apis/a452121d-c0e2-43b7-8beb-f44418d2fc7f/versions/35ba8a38-29cc-49f9-995a-71159a964ca4"
+      ],
+      "createTime": "2026-06-23T07:57:11.584063Z",
+      "updateTime": "2026-06-23T07:57:11.584063Z",
+      "fingerprint": "ai-core-gemini",
+      "sourceMetadata": [
+        {
+          "pluginInstanceActionSource": {
+            "pluginInstance": "projects/ai-portals-solution/locations/europe-west1/plugins/system-apigee-x-and-hybrid/instances/529fe983-7ec3-4701-8a6b-b7eabd34de25",
+            "actionId": "sync-metadata"
+          },
+          "sourceType": "PLUGIN",
+          "originalResourceId": "organizations/ai-portals-solution/apis/AI-Core-Gemini",
+          "originalResourceCreateTime": "1970-01-01T00:00:00Z",
+          "originalResourceUpdateTime": "0001-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "projects/ai-portals-solution/locations/europe-west1/apis/ac0312f0-0e1d-4bce-832d-1b2be2585685",
+      "displayName": "AI-Core-Qwen",
+      "versions": [
+        "projects/ai-portals-solution/locations/europe-west1/apis/ac0312f0-0e1d-4bce-832d-1b2be2585685/versions/9cb75ffb-7f80-4217-8b14-2bd4c70e3114"
+      ],
+      "createTime": "2026-06-23T07:57:11.194319Z",
+      "updateTime": "2026-06-23T07:57:11.194319Z",
+      "fingerprint": "ai-core-qwen",
+      "sourceMetadata": [
+        {
+          "pluginInstanceActionSource": {
+            "pluginInstance": "projects/ai-portals-solution/locations/europe-west1/plugins/system-apigee-x-and-hybrid/instances/529fe983-7ec3-4701-8a6b-b7eabd34de25",
+            "actionId": "sync-metadata"
+          },
+          "sourceType": "PLUGIN",
+          "originalResourceId": "organizations/ai-portals-solution/apis/AI-Core-Qwen",
+          "originalResourceCreateTime": "1970-01-01T00:00:00Z",
+          "originalResourceUpdateTime": "0001-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "projects/ai-portals-solution/locations/europe-west1/apis/e0a83bc6-ed38-4944-b417-e03a0d8b7eec",
+      "displayName": "ai-base",
+      "versions": [
+        "projects/ai-portals-solution/locations/europe-west1/apis/e0a83bc6-ed38-4944-b417-e03a0d8b7eec/versions/91bcbfb7-d61b-43e0-bedf-4bfe68fdcf00"
+      ],
+      "createTime": "2026-06-23T07:57:10.196079Z",
+      "updateTime": "2026-06-23T07:57:10.196079Z",
+      "fingerprint": "ai-base",
+      "sourceMetadata": [
+        {
+          "pluginInstanceActionSource": {
+            "pluginInstance": "projects/ai-portals-solution/locations/europe-west1/plugins/system-apigee-x-and-hybrid/instances/529fe983-7ec3-4701-8a6b-b7eabd34de25",
+            "actionId": "sync-metadata"
+          },
+          "sourceType": "PLUGIN",
+          "originalResourceId": "organizations/ai-portals-solution/apis/ai-base",
+          "originalResourceCreateTime": "1970-01-01T00:00:00Z",
+          "originalResourceUpdateTime": "0001-01-01T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "projects/ai-portals-solution/locations/europe-west1/apis/cbba2bb4-7e47-40f6-95a0-7ed7a4cbead0",
+      "displayName": "AI-Analytics",
+      "versions": [
+        "projects/ai-portals-solution/locations/europe-west1/apis/cbba2bb4-7e47-40f6-95a0-7ed7a4cbead0/versions/6603c312-4b7e-42f2-9a45-8867ea1d0002"
+      ],
+      "createTime": "2026-06-23T07:56:58.246623Z",
+      "updateTime": "2026-06-23T07:56:58.246623Z",
+      "fingerprint": "ai-analytics",
+      "sourceMetadata": [
+        {
+          "pluginInstanceActionSource": {
+            "pluginInstance": "projects/ai-portals-solution/locations/europe-west1/plugins/system-apigee-x-and-hybrid/instances/529fe983-7ec3-4701-8a6b-b7eabd34de25",
+            "actionId": "sync-metadata"
+          },
+          "sourceType": "PLUGIN",
+          "originalResourceId": "organizations/ai-portals-solution/apis/AI-Analytics",
+          "originalResourceCreateTime": "1970-01-01T00:00:00Z",
+          "originalResourceUpdateTime": "0001-01-01T00:00:00Z"
+        }
+      ]
+    }
+  ]
+}

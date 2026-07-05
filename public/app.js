@@ -239,7 +239,7 @@ class AppPortal {
       this.updateAuthHeaderUI();
 
       if (!CONFIG.demoMode) {
-        this.initFirebase();
+        await this.initFirebase();
       }
     } catch (err) {
       console.error("Failed to load portal configuration:", err);
@@ -249,63 +249,73 @@ class AppPortal {
 
   // Initialize Firebase Authentication
   initFirebase() {
-    if (this.firebaseInitialized) return;
+    if (this.firebaseInitialized) return Promise.resolve();
     if (!CONFIG.portalConfig || !CONFIG.portalConfig.authApiKey) {
       console.warn("Firebase configuration not yet available.");
-      return;
+      return Promise.resolve();
     }
 
-    try {
-      firebase.initializeApp({
-        apiKey: CONFIG.portalConfig.authApiKey,
-        authDomain: CONFIG.portalConfig.authDomain,
-      });
+    return new Promise((resolve) => {
+      try {
+        firebase.initializeApp({
+          apiKey: CONFIG.portalConfig.authApiKey,
+          authDomain: CONFIG.portalConfig.authDomain,
+        });
 
-      this.firebaseInitialized = true;
-      console.log("Firebase initialized successfully with portal settings.");
+        this.firebaseInitialized = true;
+        console.log("Firebase initialized successfully with portal settings.");
 
-      // Listen to auth changes
-      firebase.auth().onAuthStateChanged(async (firebaseUser) => {
-        if (firebaseUser) {
-          try {
-            const idToken = await firebaseUser.getIdToken();
-            let firstName = "";
-            let lastName = "";
-            if (this.registrationData) {
-              firstName = this.registrationData.firstName;
-              lastName = this.registrationData.lastName;
-              this.registrationData = null; // Clear to avoid reuse
-            } else if (firebaseUser.displayName) {
-              const nameParts = firebaseUser.displayName.split(" ");
-              firstName = nameParts[0] || "";
-              lastName = nameParts.slice(1).join(" ") || "";
+        let resolved = false;
+
+        // Listen to auth changes
+        firebase.auth().onAuthStateChanged(async (firebaseUser) => {
+          if (firebaseUser) {
+            try {
+              const idToken = await firebaseUser.getIdToken();
+              let firstName = "";
+              let lastName = "";
+              if (this.registrationData) {
+                firstName = this.registrationData.firstName;
+                lastName = this.registrationData.lastName;
+                this.registrationData = null; // Clear to avoid reuse
+              } else if (firebaseUser.displayName) {
+                const nameParts = firebaseUser.displayName.split(" ");
+                firstName = nameParts[0] || "";
+                lastName = nameParts.slice(1).join(" ") || "";
+              }
+
+              await this.liveLogin(firebaseUser.email, idToken, firstName, lastName);
+
+              this.setUser({
+                email: firebaseUser.email,
+                displayName:
+                  firebaseUser.displayName ||
+                  `${firstName} ${lastName}`.trim() ||
+                  firebaseUser.email.split("@")[0],
+                photoURL:
+                  firebaseUser.photoURL ||
+                  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
+                token: idToken,
+              });
+            } catch (err) {
+              console.error("Firebase post-login sync failed", err);
+              this.showToast("Authentication sync with gateway failed.", "error");
+              firebase.auth().signOut();
             }
-
-            await this.liveLogin(firebaseUser.email, idToken, firstName, lastName);
-
-            this.setUser({
-              email: firebaseUser.email,
-              displayName:
-                firebaseUser.displayName ||
-                `${firstName} ${lastName}`.trim() ||
-                firebaseUser.email.split("@")[0],
-              photoURL:
-                firebaseUser.photoURL ||
-                "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
-              token: idToken,
-            });
-          } catch (err) {
-            console.error("Firebase post-login sync failed", err);
-            this.showToast("Authentication sync with gateway failed.", "error");
-            firebase.auth().signOut();
+          } else {
+            this.setUser(null);
           }
-        } else {
-          this.setUser(null);
-        }
-      });
-    } catch (err) {
-      console.error("Failed to initialize Firebase Auth:", err);
-    }
+
+          if (!resolved) {
+            resolved = true;
+            resolve();
+          }
+        });
+      } catch (err) {
+        console.error("Failed to initialize Firebase Auth:", err);
+        resolve();
+      }
+    });
   }
 
   async liveLogin(email, token, firstName = "", lastName = "") {

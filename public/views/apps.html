@@ -272,6 +272,25 @@
 <script>
 window.viewInitializers['apps'] = async function() {
   console.log("Apps view initialization running...");
+  if (!app.products || app.products.length === 0) {
+    try {
+      let products = [];
+      if (CONFIG.demoMode) {
+        const res = await fetch('/mock-products.json');
+        const data = await res.json();
+        products = data.products || [];
+      } else {
+        const res = await fetch(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/products`);
+        if (res.ok) {
+          const data = await res.json();
+          products = data.products || [];
+        }
+      }
+      app.products = products;
+    } catch (err) {
+      console.error("Failed to load products for apps view", err);
+    }
+  }
   await loadUserApplications();
 };
 
@@ -331,7 +350,7 @@ function renderUserApplications() {
       <div class="panel" style="text-align:center; padding: 4rem 2rem;">
         <i data-lucide="layers-3" style="width:3rem; height:3rem; color:var(--text-muted); margin-bottom:1.5rem;"></i>
         <h2>No Applications Registered</h2>
-        <p style="color:var(--text-secondary); margin: 0.75rem 0 1.5rem 0; font-size:0.95rem;">You do not have any registered API credentials. Create an application card to subscribe to products and generate authorization keys.</p>
+        <p style="color:var(--text-secondary); margin: 0.75rem 0 1.5rem 0; font-size:0.95rem;">You do not have any registered API credentials. Create an application card to subscribe to packages and generate authorization keys.</p>
         <button class="btn btn-primary btn-sm" onclick="openCreateAppModal()">Create First App</button>
       </div>
     `;
@@ -352,16 +371,20 @@ function renderUserApplications() {
       productsList = appEntry.credentials[0].products || [];
     }
     
-    // Generate list of available products that aren't in this app yet
-    let addProductsOptionsHtml = '<option value="">-- Subscribe new Product --</option>';
+    // Generate list of available packages that aren't in this app yet
+    let addProductsOptionsHtml = '<option value="">-- Subscribe new Package --</option>';
     let productsAvailableToAdd = false;
     
     if (app.products && app.products.length > 0) {
       app.products.forEach(p => {
-        const prodId = p.productId || p.id;
-        if (!productsList.includes(prodId)) {
-          addProductsOptionsHtml += `<option value="${prodId}">${p.displayName || p.name}</option>`;
-          productsAvailableToAdd = true;
+        if (p.packages) {
+          p.packages.forEach(pkg => {
+            const pkgId = pkg.packageId;
+            if (!productsList.includes(pkgId)) {
+              addProductsOptionsHtml += `<option value="${pkgId}">${p.displayName || p.name} (${pkgId})</option>`;
+              productsAvailableToAdd = true;
+            }
+          });
         }
       });
     }
@@ -370,22 +393,32 @@ function renderUserApplications() {
     let tagsHtml = '';
     if (productsList.length > 0) {
       productsList.forEach(pId => {
-        // Resolve display name
-        const prodObj = app.products.find(item => item.productId === pId || item.id === pId);
-        const displayName = prodObj ? (prodObj.displayName || prodObj.name) : pId;
+        // Resolve display name by looking up packageId
+        let displayName = pId;
+        if (app.products) {
+          for (const p of app.products) {
+            if (p.packages) {
+              const found = p.packages.find(pkg => pkg.packageId === pId);
+              if (found) {
+                displayName = `${p.displayName || p.name} (${found.packageId})`;
+                break;
+              }
+            }
+          }
+        }
         
         tagsHtml += `
           <span class="subscribed-tag">
             <i data-lucide="check" style="width:0.875rem; height:0.875rem; color:var(--success);"></i>
             <span>${displayName}</span>
-            <span class="subscribed-tag-remove" onclick="removeProductSubscription('${appEntry.id}', '${pId}')" title="Unsubscribe product">
+            <span class="subscribed-tag-remove" onclick="removeProductSubscription('${appEntry.id}', '${pId}')" title="Unsubscribe package">
               <i data-lucide="x" style="width:0.875rem; height:0.875rem;"></i>
             </span>
           </span>
         `;
       });
     } else {
-      tagsHtml = `<div style="font-size:0.875rem; color:var(--text-muted);">No products subscribed. Add products below.</div>`;
+      tagsHtml = `<div style="font-size:0.875rem; color:var(--text-muted);">No packages subscribed. Add packages below.</div>`;
     }
     
     html += `
@@ -430,11 +463,11 @@ function renderUserApplications() {
           </div>
         </div>
         
-        <!-- Products subscriptions box -->
+        <!-- Packages subscriptions box -->
         <div class="app-products-box">
           <h4 style="font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); display:flex; align-items:center; gap:0.5rem;">
             <i data-lucide="layers" style="width:1rem; height:1rem; color:var(--primary);"></i>
-            Subscribed Products
+            Subscribed Packages
           </h4>
           
           <div class="subscribed-tags">
@@ -484,18 +517,22 @@ function openCreateAppModal() {
   const dialog = document.getElementById('create-app-dialog');
   if (!dialog) return;
   
-  // Fill products checklist
+  // Fill products checklist with packageIds
   const container = document.getElementById('new-app-products-checklist');
   if (container && app.products && app.products.length > 0) {
     let checklistHtml = '';
     app.products.forEach(p => {
-      const pId = p.productId || p.id;
-      checklistHtml += `
-        <label class="checklist-item">
-          <input type="checkbox" name="new-app-prod" value="${pId}">
-          <span>${p.displayName || p.name}</span>
-        </label>
-      `;
+      if (p.packages) {
+        p.packages.forEach(pkg => {
+          const pkgId = pkg.packageId;
+          checklistHtml += `
+            <label class="checklist-item">
+              <input type="checkbox" name="new-app-prod" value="${pkgId}">
+              <span>${p.displayName || p.name} (${pkgId})</span>
+            </label>
+          `;
+        });
+      }
     });
     container.innerHTML = checklistHtml;
   }
@@ -640,7 +677,7 @@ async function removeProductSubscription(appId, productId) {
   const targetApp = app.apps.find(a => a.id === appId);
   if (!targetApp) return;
   
-  if (!confirm(`Unsubscribe this app from product "${productId}"?`)) return;
+  if (!confirm(`Unsubscribe this app from package "${productId}"?`)) return;
   
   if (targetApp.credentials && targetApp.credentials.length > 0 && targetApp.credentials[0].products) {
     targetApp.credentials[0].products = targetApp.credentials[0].products.filter(pId => pId !== productId);
@@ -659,7 +696,7 @@ async function saveUpdatedApplication(targetApp) {
       renderUserApplications();
     } else {
       // Call PUT on server
-      const res = await app.makeRequest(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${app.user.email}/apps`, {
+      const res = await app.makeRequest(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${app.user.email}/apps/${encodeURIComponent(targetApp.name)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(targetApp)

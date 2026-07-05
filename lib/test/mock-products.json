@@ -1,65 +1,21 @@
 {
   "products": [
     {
-      "categories": ["Tools"],
-      "displayDescription": "SAP Billing MCP access.",
-      "displayName": "MCP-SAP-Billing",
-      "displayStyle": "MCP",
-      "endpoints": ["https://34-111-185-182.nip.io/sap-billing/mcp"],
-      "id": "mcp-sap-billing-1",
-      "name": "MCP-SAP-Billing (1)",
-      "sourceId": "projects/apigee-klab1/locations/europe-west1/apis/6eead66b-30e4-4a2a-997b-f84d9d1e5eb4/versions/08d368bc-96ff-4ce3-877f-7f254ce6d8e8",
-      "tags": ["AI"],
-      "type": "apigee",
-      "packages": [
-        {
-          "packageId": "mcp-sap-standard",
-          "requestTokenPricePerMillion": 0.0,
-          "responseTokenPricePerMillion": 0.0,
-          "requestCallPricePerThousand": 0.05,
-          "responseCallPricePerThousand": 0.1,
-          "tokenLimits": [],
-          "callLimits": [
-            {
-              "callLimit": 5000,
-              "type": "USER"
-            },
-            {
-              "callLimit": 50000,
-              "type": "COST_CENTER"
-            }
-          ]
-        },
-        {
-          "packageId": "mcp-sap-enterprise",
-          "requestTokenPricePerMillion": 0.0,
-          "responseTokenPricePerMillion": 0.0,
-          "requestCallPricePerThousand": 0.03,
-          "responseCallPricePerThousand": 0.07,
-          "tokenLimits": [],
-          "callLimits": [
-            {
-              "callLimit": 20000,
-              "type": "USER"
-            },
-            {
-              "callLimit": 200000,
-              "type": "COST_CENTER"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "categories": ["Tools"],
+      "categories": [
+        "Tools"
+      ],
       "displayDescription": "BigQuery MCP access.",
       "displayName": "MCP-BigQuery",
       "displayStyle": "MCP",
-      "endpoints": ["https://34-111-185-182.nip.io/bigquery/mcp"],
+      "endpoints": [
+        "https://34-111-185-182.nip.io/bigquery/mcp"
+      ],
       "id": "mcp-bigquery-1",
       "name": "MCP-BigQuery (1)",
       "sourceId": "projects/apigee-klab1/locations/europe-west1/apis/6eead66b-30e4-4a2a-997b-f84d9d1e5eb4/versions/08d368bc-96ff-4ce3-877f-7f254ce6d8e8",
-      "tags": ["AI"],
+      "tags": [
+        "AI"
+      ],
       "type": "apigee",
       "packages": [
         {
@@ -101,15 +57,21 @@
       ]
     },
     {
-      "categories": ["Models"],
+      "categories": [
+        "Models"
+      ],
       "displayDescription": "Qwen model access.",
       "displayName": "AI-Qwen",
       "displayStyle": "REST",
-      "endpoints": ["https://34-111-185-182.nip.io/qwen"],
+      "endpoints": [
+        "https://34-111-185-182.nip.io/qwen"
+      ],
       "id": "ai-vertexqwen-1",
       "name": "AI-VertexQwen (1)",
       "sourceId": "projects/apigee-klab1/locations/europe-west1/apis/b2499a30-1db8-4231-9255-30e5dee044f7/versions/d5a04e32-874a-4e77-afe1-e7b4f46f3311",
-      "tags": ["AI"],
+      "tags": [
+        "AI"
+      ],
       "type": "apigee",
       "packages": [
         {
@@ -173,15 +135,21 @@
       ]
     },
     {
-      "categories": ["Models"],
+      "categories": [
+        "Models"
+      ],
       "displayDescription": "Kimi model access.",
       "displayName": "AI-Kimi",
       "displayStyle": "REST",
-      "endpoints": ["https://34-111-185-182.nip.io/kimi"],
+      "endpoints": [
+        "https://34-111-185-182.nip.io/kimi"
+      ],
       "id": "ai-vertexkimi-1",
       "name": "AI-VertexKimi (1)",
       "sourceId": "projects/apigee-klab1/locations/europe-west1/apis/12b16f1d-9156-4f08-b9ae-bbbb7cea2d1c/versions/32449347-38fd-44a7-a6b2-f960b2334dcc",
-      "tags": ["AI"],
+      "tags": [
+        "AI"
+      ],
       "type": "apigee",
       "packages": [
         {
@@ -245,15 +213,21 @@
       ]
     },
     {
-      "categories": ["Models"],
+      "categories": [
+        "Models"
+      ],
       "displayDescription": "DeepSeek model access.",
       "displayName": "AI-DeepSeek",
       "displayStyle": "REST",
-      "endpoints": ["https://34-111-185-182.nip.io/deepseek"],
+      "endpoints": [
+        "https://34-111-185-182.nip.io/deepseek"
+      ],
       "id": "ai-vertexdeepseek-1",
       "name": "AI-VertexDeepSeek (1)",
       "sourceId": "projects/apigee-klab1/locations/europe-west1/apis/0831b8da-564c-427c-a7dc-f82d6c88e129/versions/2269360b-426c-4d56-85c2-020da3a70053",
-      "tags": ["AI"],
+      "tags": [
+        "AI"
+      ],
       "type": "apigee",
       "packages": [
         {
@@ -317,15 +291,21 @@
       ]
     },
     {
-      "categories": ["Models"],
+      "categories": [
+        "Models"
+      ],
       "displayDescription": "Gemini model access.",
       "displayName": "AI-Gemini",
       "displayStyle": "REST",
-      "endpoints": ["https://34-111-185-182.nip.io/gemini"],
+      "endpoints": [
+        "https://34-111-185-182.nip.io/gemini"
+      ],
       "id": "ai-vertexgemini-1",
       "name": "AI-VertexGemini (1)",
       "sourceId": "projects/apigee-klab1/locations/europe-west1/apis/1e6d66f4-5aaf-4482-9cc3-245c63888357/versions/3598b6eb-89e5-48bb-bf85-35e0ebe9944c",
-      "tags": ["AI"],
+      "tags": [
+        "AI"
+      ],
       "type": "apigee",
       "packages": [
         {
@@ -389,15 +369,21 @@
       ]
     },
     {
-      "categories": ["Models"],
+      "categories": [
+        "Models"
+      ],
       "displayDescription": "Claude AI model access",
       "displayName": "AI-Claude",
       "displayStyle": "REST",
-      "endpoints": ["https://34-111-185-182.nip.io/claude"],
+      "endpoints": [
+        "https://34-111-185-182.nip.io/claude"
+      ],
       "id": "ai-vertexclaude-1",
       "name": "AI-VertexClaude (1)",
       "sourceId": "projects/apigee-klab1/locations/europe-west1/apis/636756a1-4ba0-4132-9d48-23e3a1e7c117/versions/a3412aaf-a10a-42a1-9daf-94b8eb0945d1",
-      "tags": ["AI"],
+      "tags": [
+        "AI"
+      ],
       "type": "apigee",
       "packages": [
         {
@@ -461,16 +447,25 @@
       ]
     },
     {
-      "categories": ["Agents"],
+      "categories": [
+        "Agents"
+      ],
       "displayDescription": "A2A business agent for shopping & e-commerce tasks.",
       "displayName": "A2A-Business-Agent",
       "displayStyle": "A2A",
-      "endpoints": ["https://34-111-185-182.nip.io/a2a-business-agent"],
+      "endpoints": [
+        "https://34-111-185-182.nip.io/a2a-business-agent"
+      ],
       "id": "a2a-business-agent-1",
       "name": "A2A-Business-Agent (1)",
       "sourceId": "projects/apigee-klab1/locations/europe-west1/apis/a57d26cc-4b57-4e76-bfb2-dbf0b6eca841/versions/1c0f33b4-a022-40ad-85bb-828483cc2232",
       "style": "A2A",
-      "tags": ["Payment", "Shipping", "Orders", "Customer"],
+      "tags": [
+        "Payment",
+        "Shipping",
+        "Orders",
+        "Customer"
+      ],
       "type": "apigee",
       "packages": [
         {
@@ -512,67 +507,22 @@
       ]
     },
     {
-      "categories": ["Agents"],
-      "displayDescription": "A2A SAP Billing Agent.",
-      "displayName": "A2A-SAP-Billing-Agent",
-      "displayStyle": "A2A",
-      "endpoints": ["https://34-111-185-182.nip.io/a2a-sap-billing-agent"],
-      "id": "a2a-sap-billing-agent-1",
-      "name": "A2A-SAP-Billing-Agent (1)",
-      "sourceId": "projects/apigee-klab1/locations/europe-west1/apis/a57d26cc-4b57-4e76-bfb2-dbf0b6eca841/versions/1c0f33b4-a022-40ad-85bb-828483cc2232",
-      "style": "A2A",
-      "tags": ["Payment", "Billing", "Orders", "Customer"],
-      "type": "apigee",
-      "packages": [
-        {
-          "packageId": "a2a-sap-billing-agent-standard",
-          "requestTokenPricePerMillion": 0.0,
-          "responseTokenPricePerMillion": 0.0,
-          "requestCallPricePerThousand": 0.5,
-          "responseCallPricePerThousand": 1.0,
-          "tokenLimits": [],
-          "callLimits": [
-            {
-              "callLimit": 5000,
-              "type": "USER"
-            },
-            {
-              "callLimit": 50000,
-              "type": "COST_CENTER"
-            }
-          ]
-        },
-        {
-          "packageId": "a2a-sap-billing-agent-enterprise",
-          "requestTokenPricePerMillion": 0.0,
-          "responseTokenPricePerMillion": 0.0,
-          "requestCallPricePerThousand": 0.3,
-          "responseCallPricePerThousand": 0.6,
-          "tokenLimits": [],
-          "callLimits": [
-            {
-              "callLimit": 20000,
-              "type": "USER"
-            },
-            {
-              "callLimit": 200000,
-              "type": "COST_CENTER"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "categories": ["Tools"],
+      "categories": [
+        "Tools"
+      ],
       "displayDescription": "Weather Service API accesss.",
       "displayName": "Weather-API-v1",
       "displayStyle": "REST",
-      "endpoints": ["https://34-111-185-182.nip.io/v1/weather"],
+      "endpoints": [
+        "https://34-111-185-182.nip.io/v1/weather"
+      ],
       "id": "weather-api-v1-1",
       "name": "Weather-API-v1 (1)",
       "sourceId": "projects/apigee-klab1/locations/europe-west1/apis/78d8b89b-5cc9-4eab-a652-8b74315bbfff/versions/862dd79f-f986-444b-868e-803b1d78ac30",
       "style": "REST",
-      "tags": ["AI"],
+      "tags": [
+        "AI"
+      ],
       "type": "apigee",
       "packages": [
         {
@@ -614,16 +564,22 @@
       ]
     },
     {
-      "categories": ["Tools"],
+      "categories": [
+        "Tools"
+      ],
       "displayDescription": "Weather service MCP access.",
       "displayName": "Weather MCP",
       "displayStyle": "MCP",
-      "endpoints": ["https://34-111-185-182.nip.io/mcp"],
+      "endpoints": [
+        "https://34-111-185-182.nip.io/mcp"
+      ],
       "id": "weather-mcp-server-1",
       "name": "Weather-MCP-Server (1)",
       "sourceId": "projects/apigee-klab1/locations/europe-west1/apis/2c4582f0-e72e-4ff3-9377-254280cc4fc9/versions/b8b539f9-ca11-42c2-879a-ff9ca3b3cffc",
       "style": "MCP",
-      "tags": ["Customer"],
+      "tags": [
+        "Customer"
+      ],
       "type": "apigee",
       "packages": [
         {

@@ -5,7 +5,7 @@
         {
           "clientId": "GFExgof5Rlp8Crxu06lywQvHGqJ34JhzWyFy0JasjZLlhpzP",
           "clientSecret": "nnYWuOweyZ3xkWpIRZb1GCaHloDNz21eL18UC1Nzkp9FdCA9Gde2tVHntpCjzCIX",
-          "products": ["AI-VertexGemini"]
+          "products": ["ai-gemini-standard"]
         }
       ],
       "description": "",
@@ -17,7 +17,7 @@
         {
           "clientId": "XwZmRz8Of0I14FnQiYZoHzsNDQ4w9lUDlcYhB2TPibF07e3S",
           "clientSecret": "YdpopLAFvHCTAm45d7kgu6OgRvCtfG0Gzhy8QPcGw7q90duqsXOboGccgC5eaWtE",
-          "products": ["Weather-API-v1"]
+          "products": ["weather-api-v1-standard"]
         }
       ],
       "description": "",

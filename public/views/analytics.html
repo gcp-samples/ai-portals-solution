@@ -115,6 +115,18 @@
       </div>
     </div>
 
+    <!-- Quota & Limits Section -->
+    <div id="app-quota-section" class="panel app-quota-panel" style="display: none; margin-bottom: 2.5rem">
+      <h3 style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem">
+        <i data-lucide="gauge" style="width: 1.5rem; height: 1.5rem; color: var(--primary)"></i>
+        App Subscription Quotas & Limit Utilization
+      </h3>
+      <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem">
+        Track real-time token counts and call counts against your configured subscription tier limits.
+      </p>
+      <div class="quota-utilization-grid" id="quota-utilization-list"></div>
+    </div>
+
     <!-- Graphs Layout -->
     <div class="charts-layout">
       <!-- Big Chart: Call Volume -->
@@ -312,6 +324,140 @@
   body.light .analytics-table tbody tr:hover {
     background: rgba(0, 0, 0, 0.01);
   }
+
+  /* Quota Section */
+  .app-quota-panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 1.75rem;
+    backdrop-filter: var(--backdrop-blur);
+    -webkit-backdrop-filter: var(--backdrop-blur);
+    box-shadow: var(--shadow-lg);
+  }
+  .quota-utilization-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 1.5rem;
+  }
+  .quota-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  body.light .quota-card {
+    background: rgba(0, 0, 0, 0.02);
+  }
+  .quota-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-color-hover);
+    box-shadow: var(--shadow-md);
+  }
+  .quota-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.875rem;
+  }
+  .quota-card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .quota-card-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .app-badge {
+    background: var(--primary-light);
+    color: var(--primary);
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+  }
+  body.light .app-badge {
+    background: rgba(79, 70, 229, 0.1);
+  }
+  .quota-limits-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+  }
+  .quota-limit-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .quota-limit-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.825rem;
+  }
+  .quota-limit-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .quota-limit-value {
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .quota-progress-container {
+    height: 0.625rem;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+    overflow: hidden;
+    position: relative;
+  }
+  body.light .quota-progress-container {
+    background: rgba(0, 0, 0, 0.08);
+  }
+  .quota-progress-bar {
+    height: 100%;
+    border-radius: 9999px;
+    width: 0%;
+    transition: width var(--transition-normal) ease-out, background-color var(--transition-normal);
+  }
+  .quota-progress-bar.success {
+    background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  }
+  .quota-progress-bar.warning {
+    background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+  }
+  .quota-progress-bar.danger {
+    background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+  }
+  .quota-warning-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--danger);
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-top: 0.25rem;
+  }
+  .quota-empty-state {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+  }
 </style>
 
 <script>
@@ -328,6 +474,54 @@
   async function fetchAnalyticsStats() {
     const loader = document.getElementById("analytics-loading-placeholder");
     const mainContent = document.getElementById("analytics-main-content");
+
+    // Ensure products and apps are loaded if they are empty
+    if (!app.products || app.products.length === 0) {
+      try {
+        let products = [];
+        if (CONFIG.demoMode) {
+          const res = await fetch('/mock-products.json');
+          const data = await res.json();
+          products = data.products || [];
+        } else {
+          const res = await fetch(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/products`);
+          if (res.ok) {
+            const data = await res.json();
+            products = data.products || [];
+          }
+        }
+        app.products = products;
+      } catch (err) {
+        console.error("Failed to load products in analytics", err);
+      }
+    }
+
+    if (!app.apps || app.apps.length === 0) {
+      try {
+        let userApps = [];
+        if (CONFIG.demoMode) {
+          const cached = localStorage.getItem('prism_apps_demo');
+          if (cached) {
+            const data = JSON.parse(cached);
+            userApps = Array.isArray(data) ? data : (data.apps || []);
+          } else {
+            const res = await fetch('/mock-apps.json');
+            const data = await res.json();
+            userApps = data.apps || [];
+            localStorage.setItem('prism_apps_demo', JSON.stringify(userApps));
+          }
+        } else if (app.user && app.user.email) {
+          const res = await app.makeRequest(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${app.user.email}/apps`);
+          if (res.ok) {
+            const data = await res.json();
+            userApps = data.apps || [];
+          }
+        }
+        app.apps = userApps;
+      } catch (err) {
+        console.error("Failed to load apps in analytics", err);
+      }
+    }
 
     const cacheKey = `prism_analytics_cache_${app.user ? app.user.email : "guest"}`;
     const cachedAnalyticsRaw = localStorage.getItem(cacheKey);
@@ -600,6 +794,9 @@
     renderVolumeChart(labels, volumeData);
     renderTokenChart(labels, promptsData, responsesData);
     renderProductsChart(productShare);
+
+    // Render Quota Limits
+    renderAppQuotaLimits();
   }
 
   function buildAnalyticsExplorerTable(filterProd, filterApp) {
@@ -814,6 +1011,263 @@
   function formatTokensNumber(num) {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(0)}k`;
-    return num;
+    return num.toLocaleString();
+  }
+
+  // Quota Limits Render Logic
+  function renderAppQuotaLimits() {
+    const quotaSection = document.getElementById("app-quota-section");
+    const quotaList = document.getElementById("quota-utilization-list");
+    if (!quotaSection || !quotaList) return;
+
+    quotaList.innerHTML = "";
+    quotaSection.style.display = "block";
+
+    const selectedApp = document.getElementById("filter-app").value;
+
+    // Determine which apps we need to display
+    let appsToProcess = [];
+    if (selectedApp === "all") {
+      const appNames = new Set();
+      if (rawAnalyticsData.app) {
+        rawAnalyticsData.app.forEach((entry) => {
+          if (entry.environments) {
+            entry.environments.forEach((env) => {
+              if (env.dimensions) {
+                env.dimensions.forEach((dim) => {
+                  if (dim.individualNames) {
+                    dim.individualNames.forEach((name) => appNames.add(name));
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+      if (app.apps) {
+        app.apps.forEach(a => appNames.add(a.name));
+      }
+      appsToProcess = Array.from(appNames);
+    } else {
+      appsToProcess = [selectedApp];
+    }
+
+    let cardsHtml = "";
+    let totalCardsRendered = 0;
+
+    appsToProcess.forEach(appName => {
+      const subscribedProdIds = resolveProductsForApp(appName);
+      if (!subscribedProdIds || subscribedProdIds.length === 0) return;
+
+      const usage = getAppUsage(appName);
+
+      subscribedProdIds.forEach(prodId => {
+        const prodObj = (app.products || []).find(p => 
+          p.id === prodId || 
+          p.productId === prodId || 
+          p.name === prodId || 
+          (p.packages && p.packages.some(pkg => pkg.packageId === prodId))
+        );
+        if (!prodObj) return;
+
+        if (prodObj.packages && prodObj.packages.length > 0) {
+          prodObj.packages.forEach(pkg => {
+            const matchesPackageId = pkg.packageId === prodId;
+            const matchesLegacyProductId = prodObj.id === prodId || prodObj.productId === prodId || prodObj.name === prodId;
+            if (!matchesPackageId && !matchesLegacyProductId) return;
+
+            const hasTokenLimits = pkg.tokenLimits && pkg.tokenLimits.length > 0;
+            const hasCallLimits = pkg.callLimits && pkg.callLimits.length > 0;
+
+            if (!hasTokenLimits && !hasCallLimits) return;
+
+            totalCardsRendered++;
+
+            const friendlyAppName = appName.replace(/([A-Z])/g, " $1").trim();
+            const friendlyPackageName = pkg.packageId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+            let limitsHtml = "";
+
+            if (hasTokenLimits) {
+               pkg.tokenLimits.forEach(lim => {
+                 const limitVal = parseFloat(lim.tokenLimit);
+                 const consumedVal = usage.totalTokens;
+                 const percent = Math.min(100, limitVal > 0 ? (consumedVal / limitVal) * 100 : 0);
+                 const percentText = (limitVal > 0 ? (consumedVal / limitVal) * 100 : 0).toFixed(1);
+
+                 let progressClass = "success";
+                 if (percent > 85) progressClass = "danger";
+                 else if (percent > 50) progressClass = "warning";
+
+                 const warningMsg = percent >= 85 ? `
+                   <div class="quota-warning-badge">
+                     <i data-lucide="alert-triangle" style="width:0.875rem; height:0.875rem;"></i>
+                     Approaching limit (>${percentText}%)
+                   </div>
+                 ` : "";
+
+                 limitsHtml += `
+                   <div class="quota-limit-item">
+                     <div class="quota-limit-meta">
+                       <span class="quota-limit-label">
+                         <i data-lucide="cpu" style="width:0.875rem; height:0.875rem; color:var(--info);"></i>
+                         Tokens (${lim.modelName}) <span class="style-badge" style="font-size:0.65rem; padding:0.1rem 0.35rem;">${lim.type}</span>
+                       </span>
+                       <span class="quota-limit-value">${formatTokensNumber(consumedVal)} / ${formatTokensNumber(limitVal)}</span>
+                     </div>
+                     <div class="quota-progress-container">
+                       <div class="quota-progress-bar ${progressClass}" style="width: ${percent}%;"></div>
+                     </div>
+                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.125rem;">
+                       <span style="font-size:0.75rem; color:var(--text-muted);">${percentText}% consumed</span>
+                       ${warningMsg}
+                     </div>
+                   </div>
+                 `;
+               });
+            }
+
+            if (hasCallLimits) {
+               pkg.callLimits.forEach(lim => {
+                 const limitVal = parseFloat(lim.callLimit);
+                 const consumedVal = usage.totalCalls;
+                 const percent = Math.min(100, limitVal > 0 ? (consumedVal / limitVal) * 100 : 0);
+                 const percentText = (limitVal > 0 ? (consumedVal / limitVal) * 100 : 0).toFixed(1);
+
+                 let progressClass = "success";
+                 if (percent > 85) progressClass = "danger";
+                 else if (percent > 50) progressClass = "warning";
+
+                 const warningMsg = percent >= 85 ? `
+                   <div class="quota-warning-badge">
+                     <i data-lucide="alert-triangle" style="width:0.875rem; height:0.875rem;"></i>
+                     Approaching limit (>${percentText}%)
+                   </div>
+                 ` : "";
+
+                 limitsHtml += `
+                   <div class="quota-limit-item">
+                     <div class="quota-limit-meta">
+                       <span class="quota-limit-label">
+                         <i data-lucide="activity" style="width:0.875rem; height:0.875rem; color:var(--primary);"></i>
+                         Invocations / Calls <span class="style-badge" style="font-size:0.65rem; padding:0.1rem 0.35rem;">${lim.type}</span>
+                       </span>
+                       <span class="quota-limit-value">${Number(consumedVal).toLocaleString()} / ${Number(limitVal).toLocaleString()}</span>
+                     </div>
+                     <div class="quota-progress-container">
+                       <div class="quota-progress-bar ${progressClass}" style="width: ${percent}%;"></div>
+                     </div>
+                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.125rem;">
+                       <span style="font-size:0.75rem; color:var(--text-muted);">${percentText}% consumed</span>
+                       ${warningMsg}
+                     </div>
+                   </div>
+                 `;
+               });
+            }
+
+            cardsHtml += `
+              <div class="quota-card">
+                <div class="quota-card-header">
+                  <div>
+                    <h4 class="quota-card-title">${friendlyPackageName}</h4>
+                    <div class="quota-card-subtitle">${prodObj.displayName}</div>
+                  </div>
+                  <span class="app-badge">${friendlyAppName}</span>
+                </div>
+                <div class="quota-limits-list">
+                  ${limitsHtml}
+                </div>
+              </div>
+            `;
+          });
+        }
+      });
+    });
+
+    if (totalCardsRendered === 0) {
+      quotaList.innerHTML = `
+        <div class="quota-empty-state">
+          <i data-lucide="gauge-off" style="width:2rem; height:2rem; color:var(--text-muted); margin-bottom:0.75rem; display:block; margin-left:auto; margin-right:auto;"></i>
+          No active subscription limit packages configured for this application.
+        </div>
+      `;
+    } else {
+      quotaList.innerHTML = cardsHtml;
+    }
+
+    if (window.lucide) {
+      lucide.createIcons();
+    }
+  }
+
+  function matchAppName(dimName, appName) {
+    if (!dimName || !appName) return false;
+    return dimName.toLowerCase().replace(/\s/g, '') === appName.toLowerCase().replace(/\s/g, '');
+  }
+
+  function resolveProductsForApp(appName) {
+    let subscribedProductIds = [];
+    const matchedApp = (app.apps || []).find(a => matchAppName(appName, a.name));
+    if (matchedApp && matchedApp.credentials && matchedApp.credentials[0] && matchedApp.credentials[0].products) {
+      subscribedProductIds = [...matchedApp.credentials[0].products];
+    }
+    
+    if (subscribedProductIds.length === 0) {
+      const cleanApp = appName.toLowerCase().replace(/app/g, '').replace(/\s/g, '');
+      if (cleanApp.length >= 3) {
+        (app.products || []).forEach(p => {
+          const cleanProdId = p.id.toLowerCase().replace(/\s/g, '');
+          const cleanProdName = p.displayName.toLowerCase().replace(/\s/g, '');
+          if (cleanProdId.includes(cleanApp) || cleanProdName.includes(cleanApp)) {
+            subscribedProductIds.push(p.id);
+          }
+        });
+      }
+    }
+    
+    if (subscribedProductIds.length === 0 && appName.toLowerCase().includes("ai")) {
+      const geminiProd = (app.products || []).find(p => p.id.includes("gemini"));
+      if (geminiProd) subscribedProductIds.push(geminiProd.id);
+    }
+    
+    return subscribedProductIds;
+  }
+
+  function getAppUsage(appName) {
+    let totalCalls = 0;
+    let totalTokens = 0;
+    
+    if (rawAnalyticsData && rawAnalyticsData.app) {
+      rawAnalyticsData.app.forEach(entry => {
+        if (entry.environments) {
+          entry.environments.forEach(env => {
+            if (env.dimensions) {
+              env.dimensions.forEach(dim => {
+                const appDimName = dim.individualNames ? dim.individualNames[0] : "";
+                if (matchAppName(appDimName, appName)) {
+                  if (dim.metrics) {
+                    dim.metrics.forEach(m => {
+                      const isMsg = m.name === "sum(message_count)";
+                      const isPrompt = m.name === "sum(dc_ai_prompt_token_count)";
+                      const isResp = m.name === "sum(dc_ai_response_token_count)";
+                      
+                      if (m.values) {
+                        m.values.forEach(v => {
+                          const val = parseFloat(v.value) || 0;
+                          if (isMsg) totalCalls += val;
+                          if (isPrompt || isResp) totalTokens += val;
+                        });
+                      }
+                    });
+                  }
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+    return { totalCalls, totalTokens };
   }
 </script>
