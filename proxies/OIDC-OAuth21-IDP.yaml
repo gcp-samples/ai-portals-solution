@@ -1,9 +1,9 @@
 name: OIDC-OAuth21-IDP
 displayName: OIDC-OAuth21-IDP
 type: feature
-categories: []
 description: Complete Identity Provider, OpenID Connect & OAuth 2.1 BFF Proxy for Apigee
 documentation: ""
+categories: []
 parameters:
   - name: CLIENT_ID
     displayName: Client ID
@@ -13,10 +13,9 @@ parameters:
     displayName: Redirect URI
     description: Allowed redirect URI for external apps (exact match)
     default: https://localhost:8080/callback
-basePath: /oauth/v2
 defaultEndpoint:
   name: default
-  basePath: /oauth/v2
+  basePath: /
   routes:
     - name: default
   flows:
@@ -26,7 +25,8 @@ defaultEndpoint:
         - name: CORS-SetCors
     - name: GET OpenID Configuration
       mode: Response
-      condition: (proxy.pathsuffix MatchesPath "/.well-known/openid-configuration") and (request.verb = "GET")
+      condition: (proxy.pathsuffix MatchesPath "/.well-known/openid-configuration")
+        and (request.verb = "GET")
       steps:
         - name: JS-OidcConfig
     - name: GET JWKS
@@ -50,25 +50,49 @@ defaultEndpoint:
           condition: register_success = "true"
         - name: AM-RegisterFailure
           condition: register_success = "false" or register_error != null
+    - name: POST Register Client
+      mode: Response
+      condition: (proxy.pathsuffix MatchesPath "/register-client") and (request.verb =
+        "POST")
+      steps:
+        - name: JS-ProcessRegisterClient
+        - name: KVM-PutClient
+          condition: client_register_success = "true"
+        - name: AM-RegisterClientSuccess
+          condition: client_register_success = "true"
+        - name: AM-RegisterClientFailure
+          condition: client_register_success = "false" or client_register_error != null
     - name: GET Authorize
       mode: Response
       condition: (proxy.pathsuffix MatchesPath "/authorize") and (request.verb = "GET")
       steps:
+        - name: JS-ExtractClientAndSetKey
+        - name: KVM-GetClient
+          condition: (is_static_client = "false") and (client_id_extracted != null) and
+            (client_id_extracted != "")
         - name: JS-ValidateAuthorize
         - name: AM-LoginForm
     - name: POST Login / Authorize
       mode: Response
       condition: (proxy.pathsuffix MatchesPath "/authorize") and (request.verb = "POST")
       steps:
+        - name: JS-ExtractClientAndSetKey
+        - name: KVM-GetClient
+          condition: (is_static_client = "false") and (client_id_extracted != null) and
+            (client_id_extracted != "")
+        - name: JS-ValidateAuthorize
         - name: JS-ExtractCredentials
+          condition: authorize_valid = "true"
         - name: KVM-GetUser
+          condition: authorize_valid = "true"
         - name: JS-AuthenticateUser
+          condition: authorize_valid = "true"
         - name: PC-StoreCode
-          condition: auth_success = "true"
+          condition: (authorize_valid = "true") and (auth_success = "true")
         - name: AM-RedirectCode
-          condition: auth_success = "true"
+          condition: (authorize_valid = "true") and (auth_success = "true")
         - name: AM-LoginFormWithError
-          condition: auth_success = "false"
+          condition: (authorize_valid = "false") or (auth_success = "false")
     - name: POST Token
       mode: Response
       condition: (proxy.pathsuffix MatchesPath "/token") and (request.verb = "POST")
@@ -83,13 +107,16 @@ defaultEndpoint:
         - name: JS-VerifyRefreshToken
           condition: token_grant_type = "refresh_token"
         - name: IC-InvalidateCode
-          condition: (token_grant_type = "authorization_code") and (token_generation_allowed = "true")
+          condition: (token_grant_type = "authorization_code") and
+            (token_generation_allowed = "true")
         - name: IC-InvalidateRefreshToken
-          condition: (token_grant_type = "refresh_token") and (token_generation_allowed = "true")
+          condition: (token_grant_type = "refresh_token") and (token_generation_allowed =
+            "true")
         - name: JWT-GenerateAccessToken
           condition: token_generation_allowed = "true"
         - name: JWT-GenerateIDToken
-          condition: (token_generation_allowed = "true") and (token_scope_has_openid = "true")
+          condition: (token_generation_allowed = "true") and (token_scope_has_openid =
+            "true")
         - name: JS-CreateRefreshToken
           condition: token_generation_allowed = "true"
         - name: PC-StoreRefreshToken
@@ -100,31 +127,28 @@ defaultEndpoint:
           condition: token_generation_allowed = "false" or token_error != null
     - name: UserInfo
       mode: Response
-      condition: (proxy.pathsuffix MatchesPath "/userinfo") and ((request.verb = "GET") or (request.verb = "POST"))
+      condition: (proxy.pathsuffix MatchesPath "/userinfo") and ((request.verb =
+        "GET") or (request.verb = "POST"))
       steps:
         - name: JS-SetupVerification
         - name: JWT-VerifyAccessToken
         - name: AM-UserInfoResponse
+    - name: GET WellKnown
+      mode: Response
+      condition: (proxy.pathsuffix MatchesPath
+        "/.well-known/oauth-protected-resource") and (request.verb = "GET")
+      steps:
+        - name: AM-SetWellKnown
+    - name: GET AuthServer
+      mode: Response
+      condition: (proxy.pathsuffix MatchesPath
+        "/.well-known/oauth-authorization-server") and (request.verb = "GET")
+      steps:
+        - name: AM-SetAuthServer
+  faultRules: []
 endpoints: []
 targets: []
 policies:
-  - name: CORS-SetCors
-    type: CORS
-    content:
-      cors:
-        metadata:
-          continueOnError: "false"
-          enabled: "true"
-          name: CORS-SetCors
-        displayName: CORS-SetCors
-        allowOrigins: "{request.header.origin}"
-        allowMethods: GET, PUT, POST, DELETE, OPTIONS
-        allowHeaders: "*"
-        exposeHeaders: "*"
-        maxAge: "3628800"
-        allowCredentials: "true"
-        generatePreflightResponse: "true"
-        ignoreUnresolvedVariables: "true"
   - name: AM-JWKS
     type: AssignMessage
     content:
@@ -148,38 +172,588 @@ policies:
                   }
                 ]
               }
-
-  - name: JS-OidcConfig
-    type: Javascript
+  - name: AM-LoginForm
+    type: AssignMessage
     content:
-      javascript:
+      assignMessage:
         metadata:
-          name: JS-OidcConfig
-        displayName: JS-OidcConfig
-        properties: {}
-        source: |
-          var host = context.getVariable("request.header.host");
-          var proto = context.getVariable("client.scheme") || "https";
-          var baseUrl = proto + "://" + host + "/oauth/v2";
+          name: AM-LoginForm
+        set:
+          payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            value: |
+              <!DOCTYPE html>
+              <html lang="en">
+              <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>IDP - Log In</title>
+                  <link rel="preconnect" href="https://fonts.googleapis.com">
+                  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+                  <style>
+                      :root {
+                          --primary: #6366f1;
+                          --primary-glow: rgba(99, 102, 241, 0.45);
+                          --accent: #a855f7;
+                          --bg: #090d16;
+                          --card-bg: rgba(17, 25, 40, 0.55);
+                          --border: rgba(255, 255, 255, 0.08);
+                          --text: #f3f4f6;
+                          --text-muted: #9ca3af;
+                      }
+                      * { box-sizing: border-box; margin: 0; padding: 0; }
+                      body {
+                          font-family: 'Outfit', sans-serif;
+                          background-color: var(--bg);
+                          background-image:
+                              radial-gradient(at 10% 20%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                              radial-gradient(at 90% 80%, rgba(168, 85, 247, 0.15) 0px, transparent 50%);
+                          color: var(--text);
+                          min-height: 100vh;
+                          display: flex;
+                          justify-content: center;
+                          align-items: center;
+                          overflow: hidden;
+                          position: relative;
+                      }
+                      .glowing-blob {
+                          position: absolute;
+                          width: 250px;
+                          height: 250px;
+                          border-radius: 50%;
+                          background: var(--primary);
+                          filter: blur(120px);
+                          z-index: 1;
+                          opacity: 0.6;
+                          animation: float 10s ease-in-out infinite alternate;
+                      }
+                      .blob-1 { top: 15%; left: 10%; background: var(--primary); }
+                      .blob-2 { bottom: 15%; right: 10%; background: var(--accent); animation-delay: -5s; }
+                      @keyframes float {
+                          0% { transform: translateY(0px) scale(1); }
+                          100% { transform: translateY(30px) scale(1.15); }
+                      }
+                      .card {
+                          background: var(--card-bg);
+                          backdrop-filter: blur(16px);
+                          -webkit-backdrop-filter: blur(16px);
+                          border: 1px solid var(--border);
+                          border-radius: 20px;
+                          width: 100%;
+                          max-width: 440px;
+                          padding: 40px;
+                          box-shadow: 0 15px 45px rgba(0, 0, 0, 0.45);
+                          z-index: 10;
+                          position: relative;
+                          animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+                      }
+                      @keyframes fadeIn {
+                          from { opacity: 0; transform: translateY(20px); }
+                          to { opacity: 1; transform: translateY(0); }
+                      }
+                      .header { text-align: center; margin-bottom: 30px; }
+                      .header h1 {
+                          font-size: 2rem;
+                          font-weight: 700;
+                          background: linear-gradient(135deg, #fff 30%, #a5b4fc 100%);
+                          -webkit-background-clip: text;
+                          -webkit-text-fill-color: transparent;
+                          margin-bottom: 8px;
+                      }
+                      .header p { color: var(--text-muted); font-size: 0.95rem; font-family: 'Inter', sans-serif; }
+                      .form-group { margin-bottom: 20px; position: relative; }
+                      .form-group label {
+                          display: block;
+                          margin-bottom: 8px;
+                          color: var(--text);
+                          font-size: 0.9rem;
+                          font-weight: 600;
+                          letter-spacing: 0.05em;
+                          text-transform: uppercase;
+                      }
+                      .form-input {
+                          width: 100%;
+                          background: rgba(13, 20, 35, 0.6);
+                          border: 1px solid var(--border);
+                          border-radius: 10px;
+                          padding: 12px 16px;
+                          color: var(--text);
+                          font-family: 'Inter', sans-serif;
+                          font-size: 0.95rem;
+                          transition: all 0.3s ease;
+                      }
+                      .form-input:focus {
+                          outline: none;
+                          border-color: var(--primary);
+                          box-shadow: 0 0 14px var(--primary-glow);
+                          background: rgba(13, 20, 35, 0.85);
+                      }
+                      .btn {
+                          width: 100%;
+                          background: linear-gradient(135deg, var(--primary), var(--accent));
+                          border: none;
+                          border-radius: 10px;
+                          padding: 14px;
+                          color: #fff;
+                          font-family: 'Outfit', sans-serif;
+                          font-size: 1rem;
+                          font-weight: 700;
+                          cursor: pointer;
+                          transition: all 0.3s ease;
+                          box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+                          margin-top: 10px;
+                      }
+                      .btn:hover {
+                          transform: translateY(-2px);
+                          box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+                          filter: brightness(1.1);
+                      }
+                      .btn:active { transform: translateY(0); }
+                      .footer-links {
+                          margin-top: 25px;
+                          text-align: center;
+                          font-size: 0.9rem;
+                          color: var(--text-muted);
+                          font-family: 'Inter', sans-serif;
+                      }
+                      .footer-links a {
+                          color: var(--primary);
+                          text-decoration: none;
+                          font-weight: 600;
+                      }
+                      .footer-links a:hover { text-decoration: underline; }
+                      .error-alert {
+                          background: rgba(239, 68, 68, 0.15);
+                          border: 1px solid rgba(239, 68, 68, 0.3);
+                          border-radius: 10px;
+                          padding: 12px 16px;
+                          color: #fca5a5;
+                          font-size: 0.9rem;
+                          margin-bottom: 20px;
+                          font-family: 'Inter', sans-serif;
+                      }
+                      .oauth-badge {
+                          display: inline-block;
+                          background: rgba(255, 255, 255, 0.05);
+                          border: 1px solid var(--border);
+                          border-radius: 20px;
+                          padding: 4px 12px;
+                          font-size: 0.8rem;
+                          font-weight: 600;
+                          color: var(--text-muted);
+                          margin-bottom: 15px;
+                          text-transform: uppercase;
+                      }
+                  </style>
+              </head>
+              <body>
+                  <div class="glowing-blob blob-1"></div>
+                  <div class="glowing-blob blob-2"></div>
 
-          var config = {
-            "issuer": baseUrl,
-            "authorization_endpoint": baseUrl + "/authorize",
-            "token_endpoint": baseUrl + "/token",
-            "userinfo_endpoint": baseUrl + "/userinfo",
-            "jwks_uri": baseUrl + "/jwks.json",
-            "registration_endpoint": baseUrl + "/register",
-            "scopes_supported": ["openid", "profile", "email"],
-            "response_types_supported": ["code"],
-            "grant_types_supported": ["authorization_code", "refresh_token"],
-            "subject_types_supported": ["public"],
-            "id_token_signing_alg_values_supported": ["RS256"],
-            "code_challenge_methods_supported": ["S256", "plain"]
-          };
+                  <div class="card">
+                      <div class="header">
+                          <span class="oauth-badge">OIDC & OAuth 2.1 IDP</span>
+                          <h1>Sign In</h1>
+                          <p>Sign in to proceed to your application</p>
+                      </div>
 
-          context.setVariable("response.content", JSON.stringify(config, null, 2));
-          context.setVariable("response.header.content-type", "application/json");
+                      <form action="/oauth/v2/authorize" method="POST" id="loginForm">
+                          <!-- OAuth 2.1 Hidden Params -->
+                          <input type="hidden" name="client_id" value="{auth_client_id}">
+                          <input type="hidden" name="redirect_uri" value="{auth_redirect_uri}">
+                          <input type="hidden" name="response_type" value="{auth_response_type}">
+                          <input type="hidden" name="scope" value="{auth_scope}">
+                          <input type="hidden" name="state" value="{auth_state}">
+                          <input type="hidden" name="code_challenge" value="{auth_code_challenge}">
+                          <input type="hidden" name="code_challenge_method" value="{auth_code_challenge_method}">
 
+                          <div class="form-group">
+                              <label for="username">Username</label>
+                              <input type="text" id="username" name="username" class="form-input" placeholder="johndoe" required autocomplete="username">
+                          </div>
+
+                          <div class="form-group">
+                              <label for="password">Password</label>
+                              <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+                          </div>
+
+                          <button type="submit" class="btn">Authenticate</button>
+                      </form>
+
+                      <div class="footer-links">
+                          Don't have an account? <a href="/oauth/v2/register">Register here</a>
+                      </div>
+                  </div>
+              </body>
+              </html>
+  - name: AM-LoginFormWithError
+    type: AssignMessage
+    content:
+      assignMessage:
+        metadata:
+          name: AM-LoginFormWithError
+        set:
+          payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            value: |
+              <!DOCTYPE html>
+              <html lang="en">
+              <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>IDP - Log In Error</title>
+                  <link rel="preconnect" href="https://fonts.googleapis.com">
+                  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+                  <style>
+                      :root {
+                          --primary: #6366f1;
+                          --primary-glow: rgba(99, 102, 241, 0.45);
+                          --accent: #a855f7;
+                          --bg: #090d16;
+                          --card-bg: rgba(17, 25, 40, 0.55);
+                          --border: rgba(255, 255, 255, 0.08);
+                          --text: #f3f4f6;
+                          --text-muted: #9ca3af;
+                      }
+                      * { box-sizing: border-box; margin: 0; padding: 0; }
+                      body {
+                          font-family: 'Outfit', sans-serif;
+                          background-color: var(--bg);
+                          background-image:
+                              radial-gradient(at 10% 20%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                              radial-gradient(at 90% 80%, rgba(168, 85, 247, 0.15) 0px, transparent 50%);
+                          color: var(--text);
+                          min-height: 100vh;
+                          display: flex;
+                          justify-content: center;
+                          align-items: center;
+                          overflow: hidden;
+                          position: relative;
+                      }
+                      .glowing-blob {
+                          position: absolute;
+                          width: 250px;
+                          height: 250px;
+                          border-radius: 50%;
+                          background: var(--primary);
+                          filter: blur(120px);
+                          z-index: 1;
+                          opacity: 0.6;
+                          animation: float 10s ease-in-out infinite alternate;
+                      }
+                      .blob-1 { top: 15%; left: 10%; background: var(--primary); }
+                      .blob-2 { bottom: 15%; right: 10%; background: var(--accent); animation-delay: -5s; }
+                      @keyframes float {
+                          0% { transform: translateY(0px) scale(1); }
+                          100% { transform: translateY(30px) scale(1.15); }
+                      }
+                      .card {
+                          background: var(--card-bg);
+                          backdrop-filter: blur(16px);
+                          -webkit-backdrop-filter: blur(16px);
+                          border: 1px solid var(--border);
+                          border-radius: 20px;
+                          width: 100%;
+                          max-width: 440px;
+                          padding: 40px;
+                          box-shadow: 0 15px 45px rgba(0, 0, 0, 0.45);
+                          z-index: 10;
+                          position: relative;
+                          animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+                      }
+                      @keyframes fadeIn {
+                          from { opacity: 0; transform: translateY(20px); }
+                          to { opacity: 1; transform: translateY(0); }
+                      }
+                      .header { text-align: center; margin-bottom: 30px; }
+                      .header h1 {
+                          font-size: 2rem;
+                          font-weight: 700;
+                          background: linear-gradient(135deg, #fff 30%, #a5b4fc 100%);
+                          -webkit-background-clip: text;
+                          -webkit-text-fill-color: transparent;
+                          margin-bottom: 8px;
+                      }
+                      .header p { color: var(--text-muted); font-size: 0.95rem; font-family: 'Inter', sans-serif; }
+                      .form-group { margin-bottom: 20px; position: relative; }
+                      .form-group label {
+                          display: block;
+                          margin-bottom: 8px;
+                          color: var(--text);
+                          font-size: 0.9rem;
+                          font-weight: 600;
+                          letter-spacing: 0.05em;
+                          text-transform: uppercase;
+                      }
+                      .form-input {
+                          width: 100%;
+                          background: rgba(13, 20, 35, 0.6);
+                          border: 1px solid var(--border);
+                          border-radius: 10px;
+                          padding: 12px 16px;
+                          color: var(--text);
+                          font-family: 'Inter', sans-serif;
+                          font-size: 0.95rem;
+                          transition: all 0.3s ease;
+                      }
+                      .form-input:focus {
+                          outline: none;
+                          border-color: var(--primary);
+                          box-shadow: 0 0 14px var(--primary-glow);
+                          background: rgba(13, 20, 35, 0.85);
+                      }
+                      .btn {
+                          width: 100%;
+                          background: linear-gradient(135deg, var(--primary), var(--accent));
+                          border: none;
+                          border-radius: 10px;
+                          padding: 14px;
+                          color: #fff;
+                          font-family: 'Outfit', sans-serif;
+                          font-size: 1rem;
+                          font-weight: 700;
+                          cursor: pointer;
+                          transition: all 0.3s ease;
+                          box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+                          margin-top: 10px;
+                      }
+                      .btn:hover {
+                          transform: translateY(-2px);
+                          box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+                          filter: brightness(1.1);
+                      }
+                      .btn:active { transform: translateY(0); }
+                      .footer-links {
+                          margin-top: 25px;
+                          text-align: center;
+                          font-size: 0.9rem;
+                          color: var(--text-muted);
+                          font-family: 'Inter', sans-serif;
+                      }
+                      .footer-links a {
+                          color: var(--primary);
+                          text-decoration: none;
+                          font-weight: 600;
+                      }
+                      .footer-links a:hover { text-decoration: underline; }
+                      .error-alert {
+                          background: rgba(239, 68, 68, 0.15);
+                          border: 1px solid rgba(239, 68, 68, 0.3);
+                          border-radius: 10px;
+                          padding: 12px 16px;
+                          color: #fca5a5;
+                          font-size: 0.9rem;
+                          margin-bottom: 20px;
+                          font-family: 'Inter', sans-serif;
+                      }
+                      .oauth-badge {
+                          display: inline-block;
+                          background: rgba(255, 255, 255, 0.05);
+                          border: 1px solid var(--border);
+                          border-radius: 20px;
+                          padding: 4px 12px;
+                          font-size: 0.8rem;
+                          font-weight: 600;
+                          color: var(--text-muted);
+                          margin-bottom: 15px;
+                          text-transform: uppercase;
+                      }
+                  </style>
+              </head>
+              <body>
+                  <div class="glowing-blob blob-1"></div>
+                  <div class="glowing-blob blob-2"></div>
+
+                  <div class="card">
+                      <div class="header">
+                          <span class="oauth-badge">OIDC & OAuth 2.1 IDP</span>
+                          <h1>Sign In</h1>
+                          <p>Sign in to proceed to your application</p>
+                      </div>
+
+                      <div class="error-alert">{auth_error_message}</div>
+
+                      <form action="/oauth/v2/authorize" method="POST" id="loginForm">
+                          <!-- OAuth 2.1 Hidden Params -->
+                          <input type="hidden" name="client_id" value="{auth_client_id}">
+                          <input type="hidden" name="redirect_uri" value="{auth_redirect_uri}">
+                          <input type="hidden" name="response_type" value="{auth_response_type}">
+                          <input type="hidden" name="scope" value="{auth_scope}">
+                          <input type="hidden" name="state" value="{auth_state}">
+                          <input type="hidden" name="code_challenge" value="{auth_code_challenge}">
+                          <input type="hidden" name="code_challenge_method" value="{auth_code_challenge_method}">
+
+                          <div class="form-group">
+                              <label for="username">Username</label>
+                              <input type="text" id="username" name="username" class="form-input" placeholder="johndoe" value="{login_username}" required autocomplete="username">
+                          </div>
+
+                          <div class="form-group">
+                              <label for="password">Password</label>
+                              <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+                          </div>
+
+                          <button type="submit" class="btn">Authenticate</button>
+                      </form>
+
+                      <div class="footer-links">
+                          Don't have an account? <a href="/oauth/v2/register">Register here</a>
+                      </div>
+                  </div>
+              </body>
+              </html>
+  - name: AM-RedirectCode
+    type: AssignMessage
+    content:
+      assignMessage:
+        metadata:
+          name: AM-RedirectCode
+        set:
+          statusCode: "302"
+          headers:
+            header:
+              metadata:
+                name: Location
+              value: "{auth_redirect_uri}?code={auth_code}&state={auth_state}"
+          payload: {}
+  - name: AM-RegisterClientFailure
+    type: AssignMessage
+    content:
+      assignMessage:
+        metadata:
+          name: AM-RegisterClientFailure
+        set:
+          status:
+            code: "400"
+            reason: Bad Request
+          payload:
+            metadata:
+              contentType: application/json
+            value: |
+              {
+                "error": "{client_register_error}",
+                "error_description": "{client_register_error_description}"
+              }
+  - name: AM-RegisterClientSuccess
+    type: AssignMessage
+    content:
+      assignMessage:
+        metadata:
+          name: AM-RegisterClientSuccess
+        set:
+          status:
+            code: "201"
+            reason: Created
+          payload:
+            metadata:
+              contentType: application/json
+            value: "{registered_client_payload}"
+  - name: AM-RegisterFailure
+    type: AssignMessage
+    content:
+      assignMessage:
+        metadata:
+          name: AM-RegisterFailure
+        set:
+          status:
+            code: "400"
+            reason: Bad Request
+          payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            value: |
+              <!DOCTYPE html>
+              <html lang="en">
+              <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>IDP - Registration Failed</title>
+                  <link rel="preconnect" href="https://fonts.googleapis.com">
+                  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+                  <style>
+                      :root {
+                          --primary: #ef4444;
+                          --accent: #f59e0b;
+                          --bg: #090d16;
+                          --card-bg: rgba(17, 25, 40, 0.55);
+                          --border: rgba(255, 255, 255, 0.08);
+                          --text: #f3f4f6;
+                          --text-muted: #9ca3af;
+                      }
+                      * { box-sizing: border-box; margin: 0; padding: 0; }
+                      body {
+                          font-family: 'Outfit', sans-serif;
+                          background-color: var(--bg);
+                          background-image: radial-gradient(at 10% 20%, rgba(239, 68, 68, 0.1) 0px, transparent 50%);
+                          color: var(--text);
+                          min-height: 100vh;
+                          display: flex;
+                          justify-content: center;
+                          align-items: center;
+                      }
+                      .card {
+                          background: var(--card-bg);
+                          backdrop-filter: blur(16px);
+                          border: 1px solid var(--border);
+                          border-radius: 20px;
+                          width: 100%;
+                          max-width: 440px;
+                          padding: 45px;
+                          box-shadow: 0 15px 45px rgba(0, 0, 0, 0.45);
+                          text-align: center;
+                      }
+                      .icon-container {
+                          width: 80px;
+                          height: 80px;
+                          border-radius: 50%;
+                          background: rgba(239, 68, 68, 0.15);
+                          border: 2px solid var(--primary);
+                          display: flex;
+                          justify-content: center;
+                          align-items: center;
+                          margin: 0 auto 25px;
+                          color: var(--primary);
+                          box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+                      }
+                      .icon-container svg { width: 40px; height: 40px; fill: currentColor; }
+                      h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 12px; }
+                      p { color: #fca5a5; font-family: 'Inter', sans-serif; margin-bottom: 30px; line-height: 1.6; font-weight: 500; }
+                      .btn {
+                          display: inline-block;
+                          width: 100%;
+                          background: linear-gradient(135deg, var(--primary), var(--accent));
+                          border: none;
+                          border-radius: 10px;
+                          padding: 14px;
+                          color: #fff;
+                          font-family: 'Outfit', sans-serif;
+                          font-size: 1rem;
+                          font-weight: 700;
+                          text-decoration: none;
+                          transition: all 0.3s ease;
+                      }
+                      .btn:hover {
+                          transform: translateY(-2px);
+                          filter: brightness(1.15);
+                      }
+                  </style>
+              </head>
+              <body>
+                  <div class="card">
+                      <div class="icon-container">
+                          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                      </div>
+                      <h1>Registration Failed</h1>
+                      <p>{register_error}</p>
+                      <a href="/oauth/v2/register" class="btn">Try Again</a>
+                  </div>
+              </body>
+              </html>
   - name: AM-RegisterForm
     type: AssignMessage
     content:
@@ -407,76 +981,6 @@ policies:
                   </div>
               </body>
               </html>
-
-  - name: JS-ProcessRegister
-    type: Javascript
-    content:
-      javascript:
-        metadata:
-          name: JS-ProcessRegister
-        displayName: JS-ProcessRegister
-        properties: {}
-        source: |
-          var body = context.getVariable("request.content") || "";
-          var contentType = context.getVariable("request.header.Content-Type") || "";
-
-          var username, password, email, name;
-
-          if (contentType.indexOf("application/json") > -1) {
-            try {
-              var json = JSON.parse(body);
-              username = json.username;
-              password = json.password;
-              email = json.email;
-              name = json.name;
-            } catch (e) {
-              context.setVariable("register_error", "Malformed JSON payload");
-            }
-          } else {
-            // Retrieve from formparams (form-urlencoded)
-            username = context.getVariable("request.formparam.username");
-            password = context.getVariable("request.formparam.password");
-            email = context.getVariable("request.formparam.email");
-            name = context.getVariable("request.formparam.name");
-          }
-
-          if (!username || !password || !email || !name) {
-            context.setVariable("register_error", "All fields are required (name, email, username, password)");
-            context.setVariable("register_success", "false");
-          } else {
-            username = username.trim().toLowerCase();
-            var userRecord = {
-              username: username,
-              password: password,
-              email: email.trim(),
-              name: name.trim()
-            };
-
-            context.setVariable("user_key", "user:" + username);
-            context.setVariable("user_json_payload", JSON.stringify(userRecord));
-            context.setVariable("register_success", "true");
-            context.setVariable("registered_username", username);
-          }
-
-  - name: KVM-PutUser
-    type: KeyValueMapOperations
-    content:
-      keyValueMapOperations:
-        metadata:
-          name: KVM-PutUser
-          mapIdentifier: OIDC-Users
-        scope: environment
-        put:
-          metadata:
-            override: "true"
-          key:
-            parameter:
-              metadata:
-                ref: user_key
-          setValue:
-            metadata:
-              ref: user_json_payload
-
   - name: AM-RegisterSuccess
     type: AssignMessage
     content:
@@ -584,423 +1088,205 @@ policies:
                   </div>
               </body>
               </html>
-
-  - name: AM-RegisterFailure
+  - name: AM-SetAuthServer
     type: AssignMessage
     content:
       assignMessage:
         metadata:
-          name: AM-RegisterFailure
+          continueOnError: "false"
+          enabled: "true"
+          name: AM-SetAuthServer
+        displayName: AM-SetAuthServer
+        properties: {}
+        set:
+          payload:
+            metadata:
+              contentType: application/json
+            value: "
+
+              {
+
+              \  \"issuer\": \"https://8.232.129.124.nip.io\",
+
+              \  \"authorization_endpoint\":
+              \"https://8.232.129.124.nip.io/authorize\",
+
+              \  \"token_endpoint\": \"https://8.232.129.124.nip.io/token\",
+
+              \  \"registration_endpoint\":
+              \"https://8.232.129.124.nip.io/register\",
+
+              \  \"scopes_supported\": [\"openid\", \"profile\", \"email\",
+              \"mcp\"],
+
+              \  \"response_types_supported\": [\"code\"],
+
+              \  \"grant_types_supported\": [\"authorization_code\"],
+
+              \  \"code_challenge_methods_supported\": [\"S256\"]
+
+              }
+
+              \    "
+        ignoreUnresolvedVariables: "true"
+        assignTo:
+          metadata:
+            createNew: "false"
+            transport: http
+            type: response
+  - name: AM-SetWellKnown
+    type: AssignMessage
+    content:
+      assignMessage:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: AM-SetWellKnown
+        displayName: AM-SetWellKnown
+        properties: {}
+        set:
+          payload:
+            metadata:
+              contentType: application/json
+            value: "
+
+              {
+
+              \  \"resource\":
+              \"https://8.232.129.124.nip.io/api/portals/mcp\",\ 
+
+              \  \"authorization_servers\": [
+
+              \    \"https://8.232.129.124.nip.io\"
+
+              \  ],
+
+              \  \"scopes_supported\": [
+
+              \    \"openid\",
+
+              \    \"profile\",
+
+              \    \"email\",
+
+              \    \"mcp\"
+
+              \  ],
+
+              \  \"bearer_methods_supported\": [
+
+              \    \"header\"
+
+              \  ]
+
+              }
+
+              \    "
+        ignoreUnresolvedVariables: "true"
+        assignTo:
+          metadata:
+            createNew: "false"
+            transport: http
+            type: response
+  - name: AM-TokenErrorResponse
+    type: AssignMessage
+    content:
+      assignMessage:
+        metadata:
+          name: AM-TokenErrorResponse
         set:
           status:
-            code: 400
+            code: "400"
             reason: Bad Request
           payload:
             metadata:
-              contentType: text/html; charset=utf-8
+              contentType: application/json
             value: |
-              <!DOCTYPE html>
-              <html lang="en">
-              <head>
-                  <meta charset="UTF-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <title>IDP - Registration Failed</title>
-                  <link rel="preconnect" href="https://fonts.googleapis.com">
-                  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-                  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-                  <style>
-                      :root {
-                          --primary: #ef4444;
-                          --accent: #f59e0b;
-                          --bg: #090d16;
-                          --card-bg: rgba(17, 25, 40, 0.55);
-                          --border: rgba(255, 255, 255, 0.08);
-                          --text: #f3f4f6;
-                          --text-muted: #9ca3af;
-                      }
-                      * { box-sizing: border-box; margin: 0; padding: 0; }
-                      body {
-                          font-family: 'Outfit', sans-serif;
-                          background-color: var(--bg);
-                          background-image: radial-gradient(at 10% 20%, rgba(239, 68, 68, 0.1) 0px, transparent 50%);
-                          color: var(--text);
-                          min-height: 100vh;
-                          display: flex;
-                          justify-content: center;
-                          align-items: center;
-                      }
-                      .card {
-                          background: var(--card-bg);
-                          backdrop-filter: blur(16px);
-                          border: 1px solid var(--border);
-                          border-radius: 20px;
-                          width: 100%;
-                          max-width: 440px;
-                          padding: 45px;
-                          box-shadow: 0 15px 45px rgba(0, 0, 0, 0.45);
-                          text-align: center;
-                      }
-                      .icon-container {
-                          width: 80px;
-                          height: 80px;
-                          border-radius: 50%;
-                          background: rgba(239, 68, 68, 0.15);
-                          border: 2px solid var(--primary);
-                          display: flex;
-                          justify-content: center;
-                          align-items: center;
-                          margin: 0 auto 25px;
-                          color: var(--primary);
-                          box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
-                      }
-                      .icon-container svg { width: 40px; height: 40px; fill: currentColor; }
-                      h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 12px; }
-                      p { color: #fca5a5; font-family: 'Inter', sans-serif; margin-bottom: 30px; line-height: 1.6; font-weight: 500; }
-                      .btn {
-                          display: inline-block;
-                          width: 100%;
-                          background: linear-gradient(135deg, var(--primary), var(--accent));
-                          border: none;
-                          border-radius: 10px;
-                          padding: 14px;
-                          color: #fff;
-                          font-family: 'Outfit', sans-serif;
-                          font-size: 1rem;
-                          font-weight: 700;
-                          text-decoration: none;
-                          transition: all 0.3s ease;
-                      }
-                      .btn:hover {
-                          transform: translateY(-2px);
-                          filter: brightness(1.15);
-                      }
-                  </style>
-              </head>
-              <body>
-                  <div class="card">
-                      <div class="icon-container">
-                          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-                      </div>
-                      <h1>Registration Failed</h1>
-                      <p>{register_error}</p>
-                      <a href="/oauth/v2/register" class="btn">Try Again</a>
-                  </div>
-              </body>
-              </html>
-
-  - name: JS-ValidateAuthorize
-    type: Javascript
-    content:
-      javascript:
-        metadata:
-          name: JS-ValidateAuthorize
-        displayName: JS-ValidateAuthorize
-        properties: {}
-        source: |
-          var clientId = context.getVariable("request.queryparam.client_id");
-          var redirectUri = context.getVariable("request.queryparam.redirect_uri");
-          var responseType = context.getVariable("request.queryparam.response_type");
-          var scope = context.getVariable("request.queryparam.scope") || "";
-          var state = context.getVariable("request.queryparam.state") || "";
-          var codeChallenge = context.getVariable("request.queryparam.code_challenge");
-          var codeChallengeMethod = context.getVariable("request.queryparam.code_challenge_method");
-
-          var allowedClientId = context.getVariable("propertyset.oidc.CLIENT_ID") || "my-portal-client";
-          var allowedRedirectUri = context.getVariable("propertyset.oidc.REDIRECT_URI") || "https://localhost:8080/callback";
-
-          var error = null;
-          var errorDesc = null;
-
-          if (!clientId || clientId !== allowedClientId) {
-            error = "invalid_client";
-            errorDesc = "The client identifier provided is invalid or not registered.";
-          } else if (!redirectUri || redirectUri !== allowedRedirectUri) {
-            error = "invalid_redirect_uri";
-            errorDesc = "The redirect URI provided does not match the registered redirect URI (exact match is required by OAuth 2.1).";
-          } else if (responseType !== "code") {
-            error = "unsupported_response_type";
-            errorDesc = "Only response_type=code (Authorization Code Flow) is supported under OAuth 2.1; implicit grant flow is disabled.";
-          } else if (!codeChallenge || !codeChallengeMethod) {
-            // Enforce PKCE!
-            error = "invalid_request";
-            errorDesc = "Proof Key for Code Exchange (PKCE) is MANDATORY under OAuth 2.1. Please provide code_challenge and code_challenge_method.";
-          } else if (codeChallengeMethod !== "S256" && codeChallengeMethod !== "plain") {
-            error = "invalid_request";
-            errorDesc = "Only PKCE challenge methods 'S256' or 'plain' are supported.";
-          }
-
-          if (error) {
-            context.setVariable("authorize_valid", "false");
-            context.setVariable("authorize_error", error);
-            context.setVariable("authorize_error_description", errorDesc);
-          } else {
-            context.setVariable("authorize_valid", "true");
-            context.setVariable("auth_client_id", clientId);
-            context.setVariable("auth_redirect_uri", redirectUri);
-            context.setVariable("auth_response_type", responseType);
-            context.setVariable("auth_scope", scope);
-            context.setVariable("auth_state", state);
-            context.setVariable("auth_code_challenge", codeChallenge);
-            context.setVariable("auth_code_challenge_method", codeChallengeMethod);
-            context.setVariable("auth_error_message", "");
-          }
-
-  - name: AM-LoginForm
+              {
+                "error": "{token_error}",
+                "error_description": "{token_error_description}",
+                "debug": {
+                  "verifier": "{token_debug_verifier}",
+                  "calculated_challenge": "{token_debug_calculated}",
+                  "expected_challenge": "{token_debug_expected}",
+                  "challenge_method": "{token_debug_method}"
+                }
+              }
+  - name: AM-TokenResponse
     type: AssignMessage
     content:
       assignMessage:
         metadata:
-          name: AM-LoginForm
+          name: AM-TokenResponse
         set:
           payload:
             metadata:
-              contentType: text/html; charset=utf-8
+              contentType: application/json
             value: |
-              <!DOCTYPE html>
-              <html lang="en">
-              <head>
-                  <meta charset="UTF-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <title>IDP - Log In</title>
-                  <link rel="preconnect" href="https://fonts.googleapis.com">
-                  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-                  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-                  <style>
-                      :root {
-                          --primary: #6366f1;
-                          --primary-glow: rgba(99, 102, 241, 0.45);
-                          --accent: #a855f7;
-                          --bg: #090d16;
-                          --card-bg: rgba(17, 25, 40, 0.55);
-                          --border: rgba(255, 255, 255, 0.08);
-                          --text: #f3f4f6;
-                          --text-muted: #9ca3af;
-                      }
-                      * { box-sizing: border-box; margin: 0; padding: 0; }
-                      body {
-                          font-family: 'Outfit', sans-serif;
-                          background-color: var(--bg);
-                          background-image:
-                              radial-gradient(at 10% 20%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-                              radial-gradient(at 90% 80%, rgba(168, 85, 247, 0.15) 0px, transparent 50%);
-                          color: var(--text);
-                          min-height: 100vh;
-                          display: flex;
-                          justify-content: center;
-                          align-items: center;
-                          overflow: hidden;
-                          position: relative;
-                      }
-                      .glowing-blob {
-                          position: absolute;
-                          width: 250px;
-                          height: 250px;
-                          border-radius: 50%;
-                          background: var(--primary);
-                          filter: blur(120px);
-                          z-index: 1;
-                          opacity: 0.6;
-                          animation: float 10s ease-in-out infinite alternate;
-                      }
-                      .blob-1 { top: 15%; left: 10%; background: var(--primary); }
-                      .blob-2 { bottom: 15%; right: 10%; background: var(--accent); animation-delay: -5s; }
-                      @keyframes float {
-                          0% { transform: translateY(0px) scale(1); }
-                          100% { transform: translateY(30px) scale(1.15); }
-                      }
-                      .card {
-                          background: var(--card-bg);
-                          backdrop-filter: blur(16px);
-                          -webkit-backdrop-filter: blur(16px);
-                          border: 1px solid var(--border);
-                          border-radius: 20px;
-                          width: 100%;
-                          max-width: 440px;
-                          padding: 40px;
-                          box-shadow: 0 15px 45px rgba(0, 0, 0, 0.45);
-                          z-index: 10;
-                          position: relative;
-                          animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-                      }
-                      @keyframes fadeIn {
-                          from { opacity: 0; transform: translateY(20px); }
-                          to { opacity: 1; transform: translateY(0); }
-                      }
-                      .header { text-align: center; margin-bottom: 30px; }
-                      .header h1 {
-                          font-size: 2rem;
-                          font-weight: 700;
-                          background: linear-gradient(135deg, #fff 30%, #a5b4fc 100%);
-                          -webkit-background-clip: text;
-                          -webkit-text-fill-color: transparent;
-                          margin-bottom: 8px;
-                      }
-                      .header p { color: var(--text-muted); font-size: 0.95rem; font-family: 'Inter', sans-serif; }
-                      .form-group { margin-bottom: 20px; position: relative; }
-                      .form-group label {
-                          display: block;
-                          margin-bottom: 8px;
-                          color: var(--text);
-                          font-size: 0.9rem;
-                          font-weight: 600;
-                          letter-spacing: 0.05em;
-                          text-transform: uppercase;
-                      }
-                      .form-input {
-                          width: 100%;
-                          background: rgba(13, 20, 35, 0.6);
-                          border: 1px solid var(--border);
-                          border-radius: 10px;
-                          padding: 12px 16px;
-                          color: var(--text);
-                          font-family: 'Inter', sans-serif;
-                          font-size: 0.95rem;
-                          transition: all 0.3s ease;
-                      }
-                      .form-input:focus {
-                          outline: none;
-                          border-color: var(--primary);
-                          box-shadow: 0 0 14px var(--primary-glow);
-                          background: rgba(13, 20, 35, 0.85);
-                      }
-                      .btn {
-                          width: 100%;
-                          background: linear-gradient(135deg, var(--primary), var(--accent));
-                          border: none;
-                          border-radius: 10px;
-                          padding: 14px;
-                          color: #fff;
-                          font-family: 'Outfit', sans-serif;
-                          font-size: 1rem;
-                          font-weight: 700;
-                          cursor: pointer;
-                          transition: all 0.3s ease;
-                          box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
-                          margin-top: 10px;
-                      }
-                      .btn:hover {
-                          transform: translateY(-2px);
-                          box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
-                          filter: brightness(1.1);
-                      }
-                      .btn:active { transform: translateY(0); }
-                      .footer-links {
-                          margin-top: 25px;
-                          text-align: center;
-                          font-size: 0.9rem;
-                          color: var(--text-muted);
-                          font-family: 'Inter', sans-serif;
-                      }
-                      .footer-links a {
-                          color: var(--primary);
-                          text-decoration: none;
-                          font-weight: 600;
-                      }
-                      .footer-links a:hover { text-decoration: underline; }
-                      .error-alert {
-                          background: rgba(239, 68, 68, 0.15);
-                          border: 1px solid rgba(239, 68, 68, 0.3);
-                          border-radius: 10px;
-                          padding: 12px 16px;
-                          color: #fca5a5;
-                          font-size: 0.9rem;
-                          margin-bottom: 20px;
-                          font-family: 'Inter', sans-serif;
-                      }
-                      .oauth-badge {
-                          display: inline-block;
-                          background: rgba(255, 255, 255, 0.05);
-                          border: 1px solid var(--border);
-                          border-radius: 20px;
-                          padding: 4px 12px;
-                          font-size: 0.8rem;
-                          font-weight: 600;
-                          color: var(--text-muted);
-                          margin-bottom: 15px;
-                          text-transform: uppercase;
-                      }
-                  </style>
-              </head>
-              <body>
-                  <div class="glowing-blob blob-1"></div>
-                  <div class="glowing-blob blob-2"></div>
-
-                  <div class="card">
-                      <div class="header">
-                          <span class="oauth-badge">OIDC &amp; OAuth 2.1 IDP</span>
-                          <h1>Sign In</h1>
-                          <p>Sign in to proceed to your application</p>
-                      </div>
-
-                      <form action="/oauth/v2/authorize" method="POST" id="loginForm">
-                          <!-- OAuth 2.1 Hidden Params -->
-                          <input type="hidden" name="client_id" value="{auth_client_id}">
-                          <input type="hidden" name="redirect_uri" value="{auth_redirect_uri}">
-                          <input type="hidden" name="response_type" value="{auth_response_type}">
-                          <input type="hidden" name="scope" value="{auth_scope}">
-                          <input type="hidden" name="state" value="{auth_state}">
-                          <input type="hidden" name="code_challenge" value="{auth_code_challenge}">
-                          <input type="hidden" name="code_challenge_method" value="{auth_code_challenge_method}">
-
-                          <div class="form-group">
-                              <label for="username">Username</label>
-                              <input type="text" id="username" name="username" class="form-input" placeholder="johndoe" required autocomplete="username">
-                          </div>
-
-                          <div class="form-group">
-                              <label for="password">Password</label>
-                              <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
-                          </div>
-
-                          <button type="submit" class="btn">Authenticate</button>
-                      </form>
-
-                      <div class="footer-links">
-                          Don't have an account? <a href="/oauth/v2/register">Register here</a>
-                      </div>
-                  </div>
-              </body>
-              </html>
-
-  - name: JS-ExtractCredentials
-    type: Javascript
+              {
+                "access_token": "{token_access_token}",
+                "token_type": "Bearer",
+                "expires_in": 3600,
+                "refresh_token": "{token_refresh_token}",
+                "id_token": "{token_id_token}",
+                "scope": "{token_scope}"
+              }
+  - name: AM-UserInfoResponse
+    type: AssignMessage
     content:
-      javascript:
+      assignMessage:
         metadata:
-          name: JS-ExtractCredentials
-        displayName: JS-ExtractCredentials
-        properties: {}
-        source: |
-          var username = context.getVariable("request.formparam.username") || "";
-          username = username.trim().toLowerCase();
-          context.setVariable("login_username", username);
-          context.setVariable("user_key", "user:" + username);
-
-          // Extract original OIDC & OAuth 2.1 parameters
-          context.setVariable("auth_client_id", context.getVariable("request.formparam.client_id"));
-          context.setVariable("auth_redirect_uri", context.getVariable("request.formparam.redirect_uri"));
-          context.setVariable("auth_response_type", context.getVariable("request.formparam.response_type"));
-          context.setVariable("auth_scope", context.getVariable("request.formparam.scope"));
-          context.setVariable("auth_state", context.getVariable("request.formparam.state"));
-          context.setVariable("auth_code_challenge", context.getVariable("request.formparam.code_challenge"));
-          context.setVariable("auth_code_challenge_method", context.getVariable("request.formparam.code_challenge_method"));
-
-  - name: KVM-GetUser
-    type: KeyValueMapOperations
+          name: AM-UserInfoResponse
+        set:
+          payload:
+            metadata:
+              contentType: application/json
+            value: |
+              {
+                "sub": "{jwt.JWT-VerifyAccessToken.claim.subject}",
+                "email": "{jwt.JWT-VerifyAccessToken.claim.email}",
+                "name": "{jwt.JWT-VerifyAccessToken.claim.name}",
+                "scope": "{jwt.JWT-VerifyAccessToken.claim.scope}"
+              }
+  - name: CORS-SetCors
+    type: CORS
     content:
-      keyValueMapOperations:
+      cors:
         metadata:
-          name: KVM-GetUser
-          mapIdentifier: OIDC-Users
-        scope: environment
-        get:
-          metadata:
-            assignTo: user_json_payload
-          key:
-            parameter:
-              metadata:
-                ref: user_key
-
+          continueOnError: "false"
+          enabled: "true"
+          name: CORS-SetCors
+        displayName: CORS-SetCors
+        allowOrigins: "{request.header.origin}"
+        allowMethods: GET, PUT, POST, DELETE, OPTIONS
+        allowHeaders: "*"
+        exposeHeaders: "*"
+        maxAge: "3628800"
+        allowCredentials: "true"
+        generatePreflightResponse: "true"
+        ignoreUnresolvedVariables: "true"
+  - name: IC-InvalidateCode
+    type: InvalidateCache
+    content:
+      invalidateCache:
+        metadata:
+          name: IC-InvalidateCode
+        cacheKey:
+          prefix: OIDC-Code
+          keyFragment:
+            metadata:
+              ref: auth_code
+  - name: IC-InvalidateRefreshToken
+    type: InvalidateCache
+    content:
+      invalidateCache:
+        metadata:
+          name: IC-InvalidateRefreshToken
+        cacheKey:
+          prefix: OIDC-Refresh
+          keyFragment:
+            metadata:
+              ref: refresh_token
   - name: JS-AuthenticateUser
     type: Javascript
     content:
@@ -1056,255 +1342,81 @@ policies:
             context.setVariable("auth_failed", "true");
             context.setVariable("auth_error_message", "Invalid username or password");
           }
-
-  - name: PC-StoreCode
-    type: PopulateCache
+  - name: JS-CreateRefreshToken
+    type: Javascript
     content:
-      populateCache:
+      javascript:
         metadata:
-          name: PC-StoreCode
-        cacheKey:
-          prefix: OIDC-Code
-          keyFragment:
-            metadata:
-              ref: auth_code
-        expirySettings:
-          timeoutInSec: "600"
-        source: auth_code_data
+          name: JS-CreateRefreshToken
+        displayName: JS-CreateRefreshToken
+        properties: {}
+        source: |
+          // Generate a cryptographically secure random refresh token string
+          var chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+          var rToken = "rt_";
+          for (var i = 0; i < 32; i++) {
+            rToken += chars.charAt(Math.floor(Math.random() * chars.length));
+          }
+          context.setVariable("token_refresh_token", rToken);
 
-  - name: AM-RedirectCode
-    type: AssignMessage
+          var refreshData = {
+            username: context.getVariable("token_username"),
+            email: context.getVariable("token_email"),
+            name: context.getVariable("token_name"),
+            client_id: context.getVariable("token_client_id"),
+            scope: context.getVariable("token_scope")
+          };
+
+          context.setVariable("refresh_token_data", JSON.stringify(refreshData));
+  - name: JS-ExtractClientAndSetKey
+    type: Javascript
     content:
-      assignMessage:
+      javascript:
         metadata:
-          name: AM-RedirectCode
-        set:
-          statusCode: 302
-          headers:
-            header:
-              - metadata:
-                  name: Location
-                value: "{auth_redirect_uri}?code={auth_code}&state={auth_state}"
-          payload: ""
-  - name: AM-LoginFormWithError
-    type: AssignMessage
+          name: JS-ExtractClientAndSetKey
+        displayName: JS-ExtractClientAndSetKey
+        properties: {}
+        source: |
+          var verb = context.getVariable("request.verb");
+          var clientId = "";
+          if (verb === "POST") {
+            clientId = context.getVariable("request.formparam.client_id") || "";
+          } else {
+            clientId = context.getVariable("request.queryparam.client_id") || "";
+          }
+          clientId = clientId.trim();
+          var allowedClientId = context.getVariable("propertyset.oidc.CLIENT_ID") || "my-portal-client";
+
+          context.setVariable("client_id_extracted", clientId);
+
+          if (clientId === allowedClientId || clientId === "") {
+            context.setVariable("is_static_client", "true");
+          } else {
+            context.setVariable("is_static_client", "false");
+            context.setVariable("client_key", "client:" + clientId);
+          }
+  - name: JS-ExtractCredentials
+    type: Javascript
     content:
-      assignMessage:
+      javascript:
         metadata:
-          name: AM-LoginFormWithError
-        set:
-          payload:
-            metadata:
-              contentType: text/html; charset=utf-8
-            value: |
-              <!DOCTYPE html>
-              <html lang="en">
-              <head>
-                  <meta charset="UTF-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <title>IDP - Log In Error</title>
-                  <link rel="preconnect" href="https://fonts.googleapis.com">
-                  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-                  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-                  <style>
-                      :root {
-                          --primary: #6366f1;
-                          --primary-glow: rgba(99, 102, 241, 0.45);
-                          --accent: #a855f7;
-                          --bg: #090d16;
-                          --card-bg: rgba(17, 25, 40, 0.55);
-                          --border: rgba(255, 255, 255, 0.08);
-                          --text: #f3f4f6;
-                          --text-muted: #9ca3af;
-                      }
-                      * { box-sizing: border-box; margin: 0; padding: 0; }
-                      body {
-                          font-family: 'Outfit', sans-serif;
-                          background-color: var(--bg);
-                          background-image:
-                              radial-gradient(at 10% 20%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-                              radial-gradient(at 90% 80%, rgba(168, 85, 247, 0.15) 0px, transparent 50%);
-                          color: var(--text);
-                          min-height: 100vh;
-                          display: flex;
-                          justify-content: center;
-                          align-items: center;
-                          overflow: hidden;
-                          position: relative;
-                      }
-                      .glowing-blob {
-                          position: absolute;
-                          width: 250px;
-                          height: 250px;
-                          border-radius: 50%;
-                          background: var(--primary);
-                          filter: blur(120px);
-                          z-index: 1;
-                          opacity: 0.6;
-                          animation: float 10s ease-in-out infinite alternate;
-                      }
-                      .blob-1 { top: 15%; left: 10%; background: var(--primary); }
-                      .blob-2 { bottom: 15%; right: 10%; background: var(--accent); animation-delay: -5s; }
-                      @keyframes float {
-                          0% { transform: translateY(0px) scale(1); }
-                          100% { transform: translateY(30px) scale(1.15); }
-                      }
-                      .card {
-                          background: var(--card-bg);
-                          backdrop-filter: blur(16px);
-                          -webkit-backdrop-filter: blur(16px);
-                          border: 1px solid var(--border);
-                          border-radius: 20px;
-                          width: 100%;
-                          max-width: 440px;
-                          padding: 40px;
-                          box-shadow: 0 15px 45px rgba(0, 0, 0, 0.45);
-                          z-index: 10;
-                          position: relative;
-                          animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-                      }
-                      @keyframes fadeIn {
-                          from { opacity: 0; transform: translateY(20px); }
-                          to { opacity: 1; transform: translateY(0); }
-                      }
-                      .header { text-align: center; margin-bottom: 30px; }
-                      .header h1 {
-                          font-size: 2rem;
-                          font-weight: 700;
-                          background: linear-gradient(135deg, #fff 30%, #a5b4fc 100%);
-                          -webkit-background-clip: text;
-                          -webkit-text-fill-color: transparent;
-                          margin-bottom: 8px;
-                      }
-                      .header p { color: var(--text-muted); font-size: 0.95rem; font-family: 'Inter', sans-serif; }
-                      .form-group { margin-bottom: 20px; position: relative; }
-                      .form-group label {
-                          display: block;
-                          margin-bottom: 8px;
-                          color: var(--text);
-                          font-size: 0.9rem;
-                          font-weight: 600;
-                          letter-spacing: 0.05em;
-                          text-transform: uppercase;
-                      }
-                      .form-input {
-                          width: 100%;
-                          background: rgba(13, 20, 35, 0.6);
-                          border: 1px solid var(--border);
-                          border-radius: 10px;
-                          padding: 12px 16px;
-                          color: var(--text);
-                          font-family: 'Inter', sans-serif;
-                          font-size: 0.95rem;
-                          transition: all 0.3s ease;
-                      }
-                      .form-input:focus {
-                          outline: none;
-                          border-color: var(--primary);
-                          box-shadow: 0 0 14px var(--primary-glow);
-                          background: rgba(13, 20, 35, 0.85);
-                      }
-                      .btn {
-                          width: 100%;
-                          background: linear-gradient(135deg, var(--primary), var(--accent));
-                          border: none;
-                          border-radius: 10px;
-                          padding: 14px;
-                          color: #fff;
-                          font-family: 'Outfit', sans-serif;
-                          font-size: 1rem;
-                          font-weight: 700;
-                          cursor: pointer;
-                          transition: all 0.3s ease;
-                          box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
-                          margin-top: 10px;
-                      }
-                      .btn:hover {
-                          transform: translateY(-2px);
-                          box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
-                          filter: brightness(1.1);
-                      }
-                      .btn:active { transform: translateY(0); }
-                      .footer-links {
-                          margin-top: 25px;
-                          text-align: center;
-                          font-size: 0.9rem;
-                          color: var(--text-muted);
-                          font-family: 'Inter', sans-serif;
-                      }
-                      .footer-links a {
-                          color: var(--primary);
-                          text-decoration: none;
-                          font-weight: 600;
-                      }
-                      .footer-links a:hover { text-decoration: underline; }
-                      .error-alert {
-                          background: rgba(239, 68, 68, 0.15);
-                          border: 1px solid rgba(239, 68, 68, 0.3);
-                          border-radius: 10px;
-                          padding: 12px 16px;
-                          color: #fca5a5;
-                          font-size: 0.9rem;
-                          margin-bottom: 20px;
-                          font-family: 'Inter', sans-serif;
-                      }
-                      .oauth-badge {
-                          display: inline-block;
-                          background: rgba(255, 255, 255, 0.05);
-                          border: 1px solid var(--border);
-                          border-radius: 20px;
-                          padding: 4px 12px;
-                          font-size: 0.8rem;
-                          font-weight: 600;
-                          color: var(--text-muted);
-                          margin-bottom: 15px;
-                          text-transform: uppercase;
-                      }
-                  </style>
-              </head>
-              <body>
-                  <div class="glowing-blob blob-1"></div>
-                  <div class="glowing-blob blob-2"></div>
+          name: JS-ExtractCredentials
+        displayName: JS-ExtractCredentials
+        properties: {}
+        source: |
+          var username = context.getVariable("request.formparam.username") || "";
+          username = username.trim().toLowerCase();
+          context.setVariable("login_username", username);
+          context.setVariable("user_key", "user:" + username);
 
-                  <div class="card">
-                      <div class="header">
-                          <span class="oauth-badge">OIDC &amp; OAuth 2.1 IDP</span>
-                          <h1>Sign In</h1>
-                          <p>Sign in to proceed to your application</p>
-                      </div>
-
-                      <div class="error-alert">{auth_error_message}</div>
-
-                      <form action="/oauth/v2/authorize" method="POST" id="loginForm">
-                          <!-- OAuth 2.1 Hidden Params -->
-                          <input type="hidden" name="client_id" value="{auth_client_id}">
-                          <input type="hidden" name="redirect_uri" value="{auth_redirect_uri}">
-                          <input type="hidden" name="response_type" value="{auth_response_type}">
-                          <input type="hidden" name="scope" value="{auth_scope}">
-                          <input type="hidden" name="state" value="{auth_state}">
-                          <input type="hidden" name="code_challenge" value="{auth_code_challenge}">
-                          <input type="hidden" name="code_challenge_method" value="{auth_code_challenge_method}">
-
-                          <div class="form-group">
-                              <label for="username">Username</label>
-                              <input type="text" id="username" name="username" class="form-input" placeholder="johndoe" value="{login_username}" required autocomplete="username">
-                          </div>
-
-                          <div class="form-group">
-                              <label for="password">Password</label>
-                              <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
-                          </div>
-
-                          <button type="submit" class="btn">Authenticate</button>
-                      </form>
-
-                      <div class="footer-links">
-                          Don't have an account? <a href="/oauth/v2/register">Register here</a>
-                      </div>
-                  </div>
-              </body>
-              </html>
-
+          // Extract original OIDC & OAuth 2.1 parameters
+          context.setVariable("auth_client_id", context.getVariable("request.formparam.client_id"));
+          context.setVariable("auth_redirect_uri", context.getVariable("request.formparam.redirect_uri"));
+          context.setVariable("auth_response_type", context.getVariable("request.formparam.response_type"));
+          context.setVariable("auth_scope", context.getVariable("request.formparam.scope"));
+          context.setVariable("auth_state", context.getVariable("request.formparam.state"));
+          context.setVariable("auth_code_challenge", context.getVariable("request.formparam.code_challenge"));
+          context.setVariable("auth_code_challenge_method", context.getVariable("request.formparam.code_challenge_method"));
   - name: JS-ExtractTokenParams
     type: Javascript
     content:
@@ -1334,33 +1446,269 @@ policies:
           } else if (grantType === "refresh_token") {
             context.setVariable("refresh_token", refreshToken);
           }
-
-  - name: LC-LookupCode
-    type: LookupCache
+  - name: JS-OidcConfig
+    type: Javascript
     content:
-      lookupCache:
+      javascript:
         metadata:
-          name: LC-LookupCode
-        cacheKey:
-          prefix: OIDC-Code
-          keyFragment:
-            metadata:
-              ref: auth_code
-        assignTo: auth_code_data
+          name: JS-OidcConfig
+        displayName: JS-OidcConfig
+        properties: {}
+        source: |
+          var host = context.getVariable("request.header.host");
+          var proto = context.getVariable("client.scheme") || "https";
+          var baseUrl = proto + "://" + host + "/oauth/v2";
 
-  - name: LC-LookupRefreshToken
-    type: LookupCache
+          var config = {
+            "issuer": baseUrl,
+            "authorization_endpoint": baseUrl + "/authorize",
+            "token_endpoint": baseUrl + "/token",
+            "userinfo_endpoint": baseUrl + "/userinfo",
+            "jwks_uri": baseUrl + "/jwks.json",
+            "registration_endpoint": baseUrl + "/register-client",
+            "scopes_supported": ["openid", "profile", "email"],
+            "response_types_supported": ["code"],
+            "grant_types_supported": ["authorization_code", "refresh_token"],
+            "subject_types_supported": ["public"],
+            "id_token_signing_alg_values_supported": ["RS256"],
+            "code_challenge_methods_supported": ["S256", "plain"]
+          };
+
+          context.setVariable("response.content", JSON.stringify(config, null, 2));
+          context.setVariable("response.header.content-type", "application/json");
+  - name: JS-ProcessRegister
+    type: Javascript
     content:
-      lookupCache:
+      javascript:
         metadata:
-          name: LC-LookupRefreshToken
-        cacheKey:
-          prefix: OIDC-Refresh
-          keyFragment:
-            metadata:
-              ref: refresh_token
-        assignTo: refresh_token_data
+          name: JS-ProcessRegister
+        displayName: JS-ProcessRegister
+        properties: {}
+        source: |
+          var body = context.getVariable("request.content") || "";
+          var contentType = context.getVariable("request.header.Content-Type") || "";
 
+          var username, password, email, name;
+
+          if (contentType.indexOf("application/json") > -1) {
+            try {
+              var json = JSON.parse(body);
+              username = json.username;
+              password = json.password;
+              email = json.email;
+              name = json.name;
+            } catch (e) {
+              context.setVariable("register_error", "Malformed JSON payload");
+            }
+          } else {
+            // Retrieve from formparams (form-urlencoded)
+            username = context.getVariable("request.formparam.username");
+            password = context.getVariable("request.formparam.password");
+            email = context.getVariable("request.formparam.email");
+            name = context.getVariable("request.formparam.name");
+          }
+
+          if (!username || !password || !email || !name) {
+            context.setVariable("register_error", "All fields are required (name, email, username, password)");
+            context.setVariable("register_success", "false");
+          } else {
+            username = username.trim().toLowerCase();
+            var userRecord = {
+              username: username,
+              password: password,
+              email: email.trim(),
+              name: name.trim()
+            };
+
+            context.setVariable("user_key", "user:" + username);
+            context.setVariable("user_json_payload", JSON.stringify(userRecord));
+            context.setVariable("register_success", "true");
+            context.setVariable("registered_username", username);
+          }
+  - name: JS-ProcessRegisterClient
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          name: JS-ProcessRegisterClient
+        displayName: JS-ProcessRegisterClient
+        properties: {}
+        source: |
+          try {
+            var bodyStr = context.getVariable("request.content") || "{}";
+            var body = JSON.parse(bodyStr);
+
+            var clientName = (body.client_name || "Claude Code CLI").trim();
+            var redirectUris = body.redirect_uris;
+            if (!redirectUris || !Array.isArray(redirectUris) || redirectUris.length === 0) {
+              throw new Error("Missing required 'redirect_uris' array.");
+            }
+
+            // Generate secure unique client_id and client_secret
+            function randHex(len) {
+              var chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+              var str = "";
+              for (var i = 0; i < len; i++) {
+                str += chars.charAt(Math.floor(Math.random() * chars.length));
+              }
+              return str;
+            }
+
+            var clientId = "cli-" + randHex(16);
+            var clientSecret = "sec-" + randHex(32);
+
+            var clientConfig = {
+              client_id: clientId,
+              client_secret: clientSecret,
+              client_name: clientName,
+              redirect_uris: redirectUris,
+              grant_types: body.grant_types || ["authorization_code", "refresh_token"],
+              response_types: body.response_types || ["code"],
+              scope: body.scope || "openid profile email",
+              client_id_issued_at: Math.floor(Date.now() / 1000)
+            };
+
+            context.setVariable("client_key", "client:" + clientId);
+            context.setVariable("client_json_payload", JSON.stringify(clientConfig));
+            context.setVariable("client_register_success", "true");
+            
+            context.setVariable("registered_client_id", clientId);
+            context.setVariable("registered_client_secret", clientSecret);
+            context.setVariable("registered_client_payload", JSON.stringify(clientConfig, null, 2));
+
+          } catch (e) {
+            context.setVariable("client_register_success", "false");
+            context.setVariable("client_register_error", "invalid_client_metadata");
+            context.setVariable("client_register_error_description", e.message || String(e));
+          }
+  - name: JS-SetupVerification
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          name: JS-SetupVerification
+        displayName: JS-SetupVerification
+        properties: {}
+        source: |
+          var host = context.getVariable("request.header.host");
+          var proto = context.getVariable("client.scheme") || "https";
+          context.setVariable("token_issuer", proto + "://" + host + "/oauth/v2");
+
+          var publicKeyPem = "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1VRdVN4ulpvW6Q4PHQH+\nwEDwIrMTXaETd973mePKuHulEPOi2WnJ+EvByH3kGH3KVZ5IL1z4Z2hdzWwEJUY4\nRmfQ1+flL+PwO9Y1ewxP9/EuUiEYTqXi3cvnZiq7MOdQ1ymTi66K+fVZqiBRc7vs\nrFg69HZtSlHNvPU6z9XnrOS3ceCDIdJpSB8i719izs70Ra2FUVGehL0uyUUXy4cE\nGpGL1hJFVf/M7ri6v4993GTUQ0XeciTLE5C/vNGVwvNsBkwPuV2pguutAKTTkbc9\nVw7dp7ALy6ealc+KJeM17D5ykCayvUPUMj5KUuESWSipEc98UHFBzL+gw8GxvPK9\naQIDAQAB\n-----END PUBLIC KEY-----\n";
+          context.setVariable("public.key", publicKeyPem);
+  - name: JS-ValidateAuthorize
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          name: JS-ValidateAuthorize
+        displayName: JS-ValidateAuthorize
+        properties: {}
+        source: |
+          var verb = context.getVariable("request.verb");
+          var clientId, redirectUri, responseType, scope, state, codeChallenge, codeChallengeMethod;
+
+          if (verb === "POST") {
+            clientId = context.getVariable("request.formparam.client_id");
+            redirectUri = context.getVariable("request.formparam.redirect_uri");
+            responseType = context.getVariable("request.formparam.response_type");
+            scope = context.getVariable("request.formparam.scope") || "";
+            state = context.getVariable("request.formparam.state") || "";
+            codeChallenge = context.getVariable("request.formparam.code_challenge");
+            codeChallengeMethod = context.getVariable("request.formparam.code_challenge_method");
+          } else {
+            clientId = context.getVariable("request.queryparam.client_id");
+            redirectUri = context.getVariable("request.queryparam.redirect_uri");
+            responseType = context.getVariable("request.queryparam.response_type");
+            scope = context.getVariable("request.queryparam.scope") || "";
+            state = context.getVariable("request.queryparam.state") || "";
+            codeChallenge = context.getVariable("request.queryparam.code_challenge");
+            codeChallengeMethod = context.getVariable("request.queryparam.code_challenge_method");
+          }
+
+          if (clientId) clientId = clientId.trim();
+          if (redirectUri) redirectUri = redirectUri.trim();
+
+          var allowedClientId = context.getVariable("propertyset.oidc.CLIENT_ID") || "my-portal-client";
+          var allowedRedirectUri = context.getVariable("propertyset.oidc.REDIRECT_URI") || "https://localhost:8080/callback";
+
+          var isStatic = (clientId === allowedClientId);
+          var clientConfig = null;
+
+          if (!isStatic && clientId) {
+            var clientJson = context.getVariable("client_json_payload");
+            if (clientJson) {
+              try {
+                clientConfig = JSON.parse(clientJson);
+              } catch (e) {
+                // Ignore parse errors, clientConfig will be null
+              }
+            }
+          }
+
+          var error = null;
+          var errorDesc = null;
+
+          if (!clientId) {
+            error = "invalid_client";
+            errorDesc = "The client identifier is required.";
+          } else if (isStatic) {
+            if (redirectUri !== allowedRedirectUri) {
+              error = "invalid_redirect_uri";
+              errorDesc = "The redirect URI provided does not match the registered redirect URI (exact match is required by OAuth 2.1).";
+            }
+          } else {
+            // Dynamic client validation
+            if (!clientConfig) {
+              error = "invalid_client";
+              errorDesc = "The client identifier provided is invalid or not registered.";
+            } else {
+              // Validate redirect_uri matches any in the client's registered redirect_uris array
+              var uris = clientConfig.redirect_uris;
+              var found = false;
+              if (uris && Array.isArray(uris)) {
+                for (var i = 0; i < uris.length; i++) {
+                  if (String(uris[i]).trim() === redirectUri) {
+                    found = true;
+                    break;
+                  }
+                }
+              }
+              if (!found) {
+                error = "invalid_redirect_uri";
+                errorDesc = "The redirect URI provided does not match any of the registered redirect URIs for this client.";
+              }
+            }
+          }
+
+          if (!error) {
+            if (responseType !== "code") {
+              error = "unsupported_response_type";
+              errorDesc = "Only response_type=code (Authorization Code Flow) is supported under OAuth 2.1; implicit grant flow is disabled.";
+            } else if (!codeChallenge || !codeChallengeMethod) {
+              error = "invalid_request";
+              errorDesc = "Proof Key for Code Exchange (PKCE) is MANDATORY under OAuth 2.1. Please provide code_challenge and code_challenge_method.";
+            } else if (codeChallengeMethod !== "S256" && codeChallengeMethod !== "plain") {
+              error = "invalid_request";
+              errorDesc = "Only PKCE challenge methods 'S256' or 'plain' are supported.";
+            }
+          }
+
+          if (error) {
+            context.setVariable("authorize_valid", "false");
+            context.setVariable("authorize_error", error);
+            context.setVariable("authorize_error_description", errorDesc);
+          } else {
+            context.setVariable("authorize_valid", "true");
+            context.setVariable("auth_client_id", clientId);
+            context.setVariable("auth_redirect_uri", redirectUri);
+            context.setVariable("auth_response_type", responseType);
+            context.setVariable("auth_scope", scope);
+            context.setVariable("auth_state", state);
+            context.setVariable("auth_code_challenge", codeChallenge);
+            context.setVariable("auth_code_challenge_method", codeChallengeMethod);
+            context.setVariable("auth_error_message", "");
+          }
   - name: JS-VerifyCodeAndPKCE
     type: Javascript
     content:
@@ -1567,140 +1915,6 @@ policies:
             context.setVariable("token_error", error);
             context.setVariable("token_error_description", errorDesc);
           }
-
-  - name: IC-InvalidateCode
-    type: InvalidateCache
-    content:
-      invalidateCache:
-        metadata:
-          name: IC-InvalidateCode
-        cacheKey:
-          prefix: OIDC-Code
-          keyFragment:
-            metadata:
-              ref: auth_code
-
-  - name: JWT-GenerateAccessToken
-    type: GenerateJWT
-    content:
-      generateJwt:
-        metadata:
-          name: JWT-GenerateAccessToken
-        algorithm: RS256
-        ignoreUnresolvedVariables: "false"
-        privateKey:
-          setValue:
-            metadata:
-              ref: private.key
-          id:
-            metadata:
-              ref: private.key_id
-        issuer:
-          metadata:
-            ref: token_issuer
-        audience:
-          metadata:
-            ref: token_client_id
-        expiresIn: 1h
-        subject:
-          metadata:
-            ref: token_username
-        additionalClaims:
-          claim:
-            - metadata:
-                name: email
-                ref: token_email
-            - metadata:
-                name: name
-                ref: token_name
-            - metadata:
-                name: scope
-                ref: token_scope
-        outputVariable: token_access_token
-
-  - name: JWT-GenerateIDToken
-    type: GenerateJWT
-    content:
-      generateJwt:
-        metadata:
-          name: JWT-GenerateIDToken
-        algorithm: RS256
-        ignoreUnresolvedVariables: "false"
-        privateKey:
-          setValue:
-            metadata:
-              ref: private.key
-          id:
-            metadata:
-              ref: private.key_id
-        issuer:
-          metadata:
-            ref: token_issuer
-        audience:
-          metadata:
-            ref: token_client_id
-        expiresIn: 1h
-        subject:
-          metadata:
-            ref: token_username
-        additionalClaims:
-          claim:
-            - metadata:
-                name: email
-                ref: token_email
-            - metadata:
-                name: name
-                ref: token_name
-            - metadata:
-                name: auth_time
-                ref: token_auth_time
-            - metadata:
-                name: nonce
-                ref: token_nonce
-        outputVariable: token_id_token
-
-  - name: JS-CreateRefreshToken
-    type: Javascript
-    content:
-      javascript:
-        metadata:
-          name: JS-CreateRefreshToken
-        displayName: JS-CreateRefreshToken
-        properties: {}
-        source: |
-          // Generate a cryptographically secure random refresh token string
-          var chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-          var rToken = "rt_";
-          for (var i = 0; i < 32; i++) {
-            rToken += chars.charAt(Math.floor(Math.random() * chars.length));
-          }
-          context.setVariable("token_refresh_token", rToken);
-
-          var refreshData = {
-            username: context.getVariable("token_username"),
-            email: context.getVariable("token_email"),
-            name: context.getVariable("token_name"),
-            client_id: context.getVariable("token_client_id"),
-            scope: context.getVariable("token_scope")
-          };
-
-          context.setVariable("refresh_token_data", JSON.stringify(refreshData));
-
-  - name: PC-StoreRefreshToken
-    type: PopulateCache
-    content:
-      populateCache:
-        metadata:
-          name: PC-StoreRefreshToken
-        cacheKey:
-          prefix: OIDC-Refresh
-          keyFragment:
-            metadata:
-              ref: token_refresh_token
-        expirySettings:
-          timeoutInSec: "2592000" # 30 days
-        source: refresh_token_data
-
   - name: JS-VerifyRefreshToken
     type: Javascript
     content:
@@ -1757,80 +1971,83 @@ policies:
             context.setVariable("token_error", error);
             context.setVariable("token_error_description", errorDesc);
           }
-
-  - name: IC-InvalidateRefreshToken
-    type: InvalidateCache
+  - name: JWT-GenerateAccessToken
+    type: GenerateJWT
     content:
-      invalidateCache:
+      generateJwt:
         metadata:
-          name: IC-InvalidateRefreshToken
-        cacheKey:
-          prefix: OIDC-Refresh
-          keyFragment:
+          name: JWT-GenerateAccessToken
+        algorithm: RS256
+        ignoreUnresolvedVariables: "false"
+        privateKey:
+          setValue:
             metadata:
-              ref: refresh_token
-
-  - name: AM-TokenResponse
-    type: AssignMessage
-    content:
-      assignMessage:
-        metadata:
-          name: AM-TokenResponse
-        set:
-          payload:
+              ref: private.key
+          id:
             metadata:
-              contentType: application/json
-            value: |
-              {
-                "access_token": "{token_access_token}",
-                "token_type": "Bearer",
-                "expires_in": 3600,
-                "refresh_token": "{token_refresh_token}",
-                "id_token": "{token_id_token}",
-                "scope": "{token_scope}"
-              }
-
-  - name: AM-TokenErrorResponse
-    type: AssignMessage
+              ref: private.key_id
+        issuer:
+          metadata:
+            ref: token_issuer
+        audience:
+          metadata:
+            ref: token_client_id
+        expiresIn: 1h
+        subject:
+          metadata:
+            ref: token_username
+        additionalClaims:
+          claim:
+            - metadata:
+                name: email
+                ref: token_email
+            - metadata:
+                name: name
+                ref: token_name
+            - metadata:
+                name: scope
+                ref: token_scope
+        outputVariable: token_access_token
+  - name: JWT-GenerateIDToken
+    type: GenerateJWT
     content:
-      assignMessage:
+      generateJwt:
         metadata:
-          name: AM-TokenErrorResponse
-        set:
-          status:
-            code: 400
-            reason: Bad Request
-          payload:
+          name: JWT-GenerateIDToken
+        algorithm: RS256
+        ignoreUnresolvedVariables: "false"
+        privateKey:
+          setValue:
             metadata:
-              contentType: application/json
-            value: |
-              {
-                "error": "{token_error}",
-                "error_description": "{token_error_description}",
-                "debug": {
-                  "verifier": "{token_debug_verifier}",
-                  "calculated_challenge": "{token_debug_calculated}",
-                  "expected_challenge": "{token_debug_expected}",
-                  "challenge_method": "{token_debug_method}"
-                }
-              }
-
-  - name: JS-SetupVerification
-    type: Javascript
-    content:
-      javascript:
-        metadata:
-          name: JS-SetupVerification
-        displayName: JS-SetupVerification
-        properties: {}
-        source: |
-          var host = context.getVariable("request.header.host");
-          var proto = context.getVariable("client.scheme") || "https";
-          context.setVariable("token_issuer", proto + "://" + host + "/oauth/v2");
-
-          var publicKeyPem = "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1VRdVN4ulpvW6Q4PHQH+\nwEDwIrMTXaETd973mePKuHulEPOi2WnJ+EvByH3kGH3KVZ5IL1z4Z2hdzWwEJUY4\nRmfQ1+flL+PwO9Y1ewxP9/EuUiEYTqXi3cvnZiq7MOdQ1ymTi66K+fVZqiBRc7vs\nrFg69HZtSlHNvPU6z9XnrOS3ceCDIdJpSB8i719izs70Ra2FUVGehL0uyUUXy4cE\nGpGL1hJFVf/M7ri6v4993GTUQ0XeciTLE5C/vNGVwvNsBkwPuV2pguutAKTTkbc9\nVw7dp7ALy6ealc+KJeM17D5ykCayvUPUMj5KUuESWSipEc98UHFBzL+gw8GxvPK9\naQIDAQAB\n-----END PUBLIC KEY-----\n";
-          context.setVariable("public.key", publicKeyPem);
-
+              ref: private.key
+          id:
+            metadata:
+              ref: private.key_id
+        issuer:
+          metadata:
+            ref: token_issuer
+        audience:
+          metadata:
+            ref: token_client_id
+        expiresIn: 1h
+        subject:
+          metadata:
+            ref: token_username
+        additionalClaims:
+          claim:
+            - metadata:
+                name: email
+                ref: token_email
+            - metadata:
+                name: name
+                ref: token_name
+            - metadata:
+                name: auth_time
+                ref: token_auth_time
+            - metadata:
+                name: nonce
+                ref: token_nonce
+        outputVariable: token_id_token
   - name: JWT-VerifyAccessToken
     type: VerifyJWT
     content:
@@ -1849,25 +2066,124 @@ policies:
         audience:
           metadata:
             ref: propertyset.oidc.CLIENT_ID
-
-  - name: AM-UserInfoResponse
-    type: AssignMessage
+  - name: KVM-GetClient
+    type: KeyValueMapOperations
     content:
-      assignMessage:
+      keyValueMapOperations:
         metadata:
-          name: AM-UserInfoResponse
-        set:
-          payload:
+          name: KVM-GetClient
+          mapIdentifier: OIDC-Users
+        scope: environment
+        get:
+          metadata:
+            assignTo: client_json_payload
+          key:
+            parameter:
+              metadata:
+                ref: client_key
+  - name: KVM-GetUser
+    type: KeyValueMapOperations
+    content:
+      keyValueMapOperations:
+        metadata:
+          name: KVM-GetUser
+          mapIdentifier: OIDC-Users
+        scope: environment
+        get:
+          metadata:
+            assignTo: user_json_payload
+          key:
+            parameter:
+              metadata:
+                ref: user_key
+  - name: KVM-PutClient
+    type: KeyValueMapOperations
+    content:
+      keyValueMapOperations:
+        metadata:
+          name: KVM-PutClient
+          mapIdentifier: OIDC-Users
+        scope: environment
+        put:
+          metadata:
+            override: "true"
+          key:
+            parameter:
+              metadata:
+                ref: client_key
+          setValue:
             metadata:
-              contentType: application/json
-            value: |
-              {
-                "sub": "{jwt.JWT-VerifyAccessToken.claim.subject}",
-                "email": "{jwt.JWT-VerifyAccessToken.claim.email}",
-                "name": "{jwt.JWT-VerifyAccessToken.claim.name}",
-                "scope": "{jwt.JWT-VerifyAccessToken.claim.scope}"
-              }
-
+              ref: client_json_payload
+  - name: KVM-PutUser
+    type: KeyValueMapOperations
+    content:
+      keyValueMapOperations:
+        metadata:
+          name: KVM-PutUser
+          mapIdentifier: OIDC-Users
+        scope: environment
+        put:
+          metadata:
+            override: "true"
+          key:
+            parameter:
+              metadata:
+                ref: user_key
+          setValue:
+            metadata:
+              ref: user_json_payload
+  - name: LC-LookupCode
+    type: LookupCache
+    content:
+      lookupCache:
+        metadata:
+          name: LC-LookupCode
+        cacheKey:
+          prefix: OIDC-Code
+          keyFragment:
+            metadata:
+              ref: auth_code
+        assignTo: auth_code_data
+  - name: LC-LookupRefreshToken
+    type: LookupCache
+    content:
+      lookupCache:
+        metadata:
+          name: LC-LookupRefreshToken
+        cacheKey:
+          prefix: OIDC-Refresh
+          keyFragment:
+            metadata:
+              ref: refresh_token
+        assignTo: refresh_token_data
+  - name: PC-StoreCode
+    type: PopulateCache
+    content:
+      populateCache:
+        metadata:
+          name: PC-StoreCode
+        cacheKey:
+          prefix: OIDC-Code
+          keyFragment:
+            metadata:
+              ref: auth_code
+        expirySettings:
+          timeoutInSec: "600"
+        source: auth_code_data
+  - name: PC-StoreRefreshToken
+    type: PopulateCache
+    content:
+      populateCache:
+        metadata:
+          name: PC-StoreRefreshToken
+        cacheKey:
+          prefix: OIDC-Refresh
+          keyFragment:
+            metadata:
+              ref: token_refresh_token
+        expirySettings:
+          timeoutInSec: "2592000"
+        source: refresh_token_data
 resources:
   - name: oidc.properties
     type: properties
