@@ -6,8 +6,8 @@ The **Apigee AI Portal** is a modern, agent-centric storefront template created 
 
 ## Key Advantages
 
-*   **Flexible Backend Options**: Deploy with ease using either **[Cloud Run](https://cloud.google.com/run)** for a serverless experience or as an **Apigee Proxy** for integrated API management.
-* By default uses an OIDC proxy in Apigee as IDP, but can be changed to use any OIDC server.
+*  **Serverless** deployment using an Apigee proxy.
+* By default uses an **OIDC proxy** in Apigee as IDP, but can be changed to use any OIDC server.
 *   **Seamless Integration**: Designed to integrate flawlessly with **[Apigee X](https://cloud.google.com/apigee)** and **Apigee hybrid** APIs, providing a unified management and discovery experience.
 *   **Agentic Customization**: Built for high extensibility, the portal can be easily customized using **[Antigravity](https://antigravity.google)**, **Gemini CLI**, or other agentic coding solutions, enabling rapid iteration and AI-driven development.
 *   **Enterprise-Grade Monitoring**: Fully supported through **[Google Cloud Monitoring](https://cloud.google.com/monitoring)**, ensuring you have deep visibility into portal performance and usage patterns.
@@ -18,13 +18,14 @@ The **Apigee AI Portal** is a modern, agent-centric storefront template created 
 
 - Google Cloud Project, Apigee, API Hub, and Identity Platform provisioned.
 - Google Cloud SDK (gcloud) installed and authenticated, or access to [Cloud Shell](https://docs.cloud.google.com/shell/docs).
+- [Apigee Feature Templater](https://github.com/apigee/apigee-templater) and [Firebase CLI](https://firebase.google.com/docs/cli) installed.
 
 ## Deploy
 
 To deploy the solution, you will need to deploy 2 Apigee proxies and the web client, like this.
 
 ```sh
-# initialize .env file
+# initialize .env file and client config
 source ./sh/initialize.sh
 
 # deploy proxies
