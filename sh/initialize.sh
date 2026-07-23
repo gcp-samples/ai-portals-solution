@@ -6,14 +6,11 @@ fi
 
 read -e -i "$GOOGLE_CLOUD_PROJECT" -p "Enter your Google Cloud Project Id: " GOOGLE_CLOUD_PROJECT
 read -e -i "$GOOGLE_CLOUD_LOCATION" -p "Enter your Google Cloud Region: " GOOGLE_CLOUD_LOCATION
-read -e -i "$AUTH_API_KEY" -p "Enter your Identity Platfrom API Key: " AUTH_API_KEY
 
 echo "Saving $GOOGLE_CLOUD_PROJECT and $GOOGLE_CLOUD_LOCATION..."
 
 echo "export GOOGLE_CLOUD_PROJECT=$GOOGLE_CLOUD_PROJECT" > .env
 echo "export GOOGLE_CLOUD_LOCATION=$GOOGLE_CLOUD_LOCATION" >> .env
-echo "export AUTH_API_KEY=$AUTH_API_KEY" >> .env
-echo "export AUTH_DOMAIN=$GOOGLE_CLOUD_PROJECT.firebaseapp.com" >> .env
 
 source .env
 
