@@ -46,6 +46,23 @@ defaultEndpoint:
         - name: SC-GetProducts
         - name: JS-TransformProducts
         - name: RC-ResponseCache
+    - name: GET Product Detail
+      mode: Request
+      condition: (proxy.pathsuffix MatchesPath "/*/products/*") and (request.verb = "GET")
+      steps:
+        - name: SC-GetAPIs
+        - name: SC-GetProducts
+        - name: JS-FindProductAndSetVersion
+    - name: GET Product Detail
+      mode: Response
+      condition: (proxy.pathsuffix MatchesPath "/*/products/*") and (request.verb = "GET")
+      steps:
+        - name: SC-GetDeployment
+        - name: SC-GetVersion
+        - name: JS-ParseSpecName
+        - name: SC-GetSpecContents
+          condition: has_specs = "true"
+        - name: JS-TransformProductDetail
     - name: POST Login
       mode: Response
       condition: (proxy.pathsuffix MatchesPath "/*/users/*/login") and (request.verb =
@@ -149,6 +166,222 @@ defaultEndpoint:
 endpoints: []
 targets: []
 policies:
+  - name: JS-FindProductAndSetVersion
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-FindProductAndSetVersion
+        displayName: JS-FindProductAndSetVersion
+        properties: {}
+        source: |
+          var paths = context.getVariable("proxy.pathsuffix").split("/");
+          var productId = paths[paths.length - 1];
+          context.setVariable("productId", productId);
+
+          var apisRaw = context.getVariable("response.content");
+          var productsRaw = context.getVariable("productResponse.content");
+
+          if (apisRaw && productsRaw) {
+            try {
+              var apisObject = JSON.parse(apisRaw);
+              var productsObject = JSON.parse(productsRaw);
+              var result = transformApisToProducts(apisObject, productsObject);
+              if (result && Array.isArray(result.products)) {
+                var foundProduct = null;
+                for (var i = 0; i < result.products.length; i++) {
+                  var p = result.products[i];
+                  if (p && (p.id === productId || p.productId === productId)) {
+                    foundProduct = p;
+                    break;
+                  }
+                }
+
+                if (foundProduct) {
+                  context.setVariable("apihub_version_name", foundProduct.sourceId);
+                  context.setVariable("product_display_style", foundProduct.displayStyle);
+                  context.setVariable("realProductJson", JSON.stringify(foundProduct));
+                }
+              }
+            } catch (e) {
+              print("Error in JS-FindProductAndSetVersion: " + e);
+            }
+          }
+        includeUrl: jsc://transformations.js
+  - name: SC-GetDeployment
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-GetDeployment
+        displayName: SC-GetDeployment
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+        response: deploymentResponse
+        httpTargetConnection:
+          properties: {}
+          url: https://apihub.googleapis.com/v1/projects/{organization.name}/locations/{system.region.name}/deployments
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
+  - name: SC-GetVersion
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-GetVersion
+        displayName: SC-GetVersion
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+        response: versionResponse
+        httpTargetConnection:
+          properties: {}
+          url: https://apihub.googleapis.com/v1/{apihub_version_name}/specs
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
+  - name: JS-ParseSpecName
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-ParseSpecName
+        displayName: JS-ParseSpecName
+        properties: {}
+        source: |
+          try {
+            var raw = context.getVariable("versionResponse.content");
+            if (raw) {
+              var versionData = JSON.parse(raw);
+              if (versionData && versionData.specs && versionData.specs.length > 0) {
+                var firstSpec = versionData.specs[0];
+                if (firstSpec && firstSpec.name) {
+                  context.setVariable("apihub_spec_contents_url", firstSpec.name);
+                  context.setVariable("has_specs", "true");
+                } else {
+                  context.setVariable("has_specs", "false");
+                }
+              } else {
+                context.setVariable("has_specs", "false");
+              }
+            } else {
+              context.setVariable("has_specs", "false");
+            }
+          } catch(e) {
+            context.setVariable("has_specs", "false");
+          }
+  - name: SC-GetSpecContents
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-GetSpecContents
+        displayName: SC-GetSpecContents
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+        response: specContentsResponse
+        httpTargetConnection:
+          properties: {}
+          url: https://apihub.googleapis.com/v1/{apihub_spec_contents_url}:contents
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
+  - name: JS-TransformProductDetail
+
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-TransformProductDetail
+        displayName: JS-TransformProductDetail
+        properties: {}
+        source: |
+          var productId = context.getVariable("productId");
+          var deploymentRaw = context.getVariable("deploymentResponse.content");
+          var versionRaw = context.getVariable("specContentsResponse.content") || context.getVariable("versionResponse.content");
+          var realProductJson = context.getVariable("realProductJson");
+
+          var deploymentData = null;
+          if (deploymentRaw) {
+            try {
+              deploymentData = JSON.parse(deploymentRaw);
+            } catch(e) {}
+          }
+
+          var versionData = null;
+          if (versionRaw) {
+            try {
+              versionData = JSON.parse(versionRaw);
+            } catch(e) {}
+          }
+
+          var mockProducts = null;
+          var realProduct = null;
+          if (realProductJson) {
+            try {
+              realProduct = JSON.parse(realProductJson);
+              mockProducts = { "products": [realProduct] };
+            } catch(e) {}
+          }
+
+          var result = transformProductDetail(deploymentData, versionData, productId, mockProducts);
+
+          if (!result.spec) {
+            if (result.displayStyle === "MCP") {
+              result.spec = {
+                "tools": [
+                  {
+                    "name": "query",
+                    "description": "Run analytical SQL queries",
+                    "inputSchema": {
+                      "type": "object",
+                      "properties": {
+                        "sql": { "type": "string" }
+                      },
+                      "required": ["sql"]
+                    }
+                  }
+                ]
+              };
+            } else {
+              var displayName = (realProduct && (realProduct.displayName || realProduct.name)) || productId;
+              result.spec = "openapi: 3.0.0\ninfo:\n  title: " + displayName + " Spec\n  version: 1.0.0\npaths:\n  /:\n    get:\n      responses:\n        '200':\n          description: Success";
+            }
+          }
+
+          response.content = JSON.stringify(result);
+          response.headers["Content-Type"] = "application/json";
+        includeUrl: jsc://transformations.js
   - name: JS-SetSecurityKeyNames
     type: Javascript
     content:
@@ -1245,8 +1478,9 @@ resources:
           // 2. Extract displayName
           var displayName = api.displayName || "";
 
-          // 3. Extract versions
+          // 3. Extract versions and sourceId (version resource name)
           var versions = api.versions || [];
+          var sourceId = (versions && versions.length > 0) ? versions[0] : "";
 
           // 4. Extract createTime
           var createTime = api.createTime || "";
@@ -1265,9 +1499,21 @@ resources:
             targetUser = api.targetUser.enumValues.values[0].displayName || null;
           }
 
-          // 7. Extract categories and tags from attributes
+          // 7. Extract categories, tags, and api-style from attributes
           var categories = [];
           var tags = [];
+          var displayStyle = "REST"; // default fallback style
+
+          // First-class system property check for apiStyle (or snake_case api_style) from API Hub
+          var systemStyleObj = api.apiStyle || api.api_style;
+          if (
+            systemStyleObj &&
+            systemStyleObj.enumValues &&
+            systemStyleObj.enumValues.values &&
+            systemStyleObj.enumValues.values[0]
+          ) {
+            displayStyle = systemStyleObj.enumValues.values[0].displayName || systemStyleObj.enumValues.values[0].id || displayStyle;
+          }
 
           if (api.attributes) {
             var keys = Object.keys(api.attributes);
@@ -1283,6 +1529,15 @@ resources:
                   .filter(Boolean);
               } else if (key.slice(-5) === "/tags") {
                 tags = (attr && attr.stringValues && attr.stringValues.values) || [];
+              } else if (key.slice(-10) === "/api-style" || key.slice(-10) === "/api_style" || key.slice(-6) === "/style") {
+                // Extract style from enum values
+                if (attr && attr.enumValues && attr.enumValues.values && attr.enumValues.values.length > 0) {
+                  displayStyle = attr.enumValues.values[0].displayName || attr.enumValues.values[0].id || displayStyle;
+                }
+                // Extract style from string values
+                else if (attr && attr.stringValues && attr.stringValues.values && attr.stringValues.values.length > 0) {
+                  displayStyle = attr.stringValues.values[0] || displayStyle;
+                }
               }
             }
           }
@@ -1404,6 +1659,8 @@ resources:
           return {
             id: id,
             displayName: displayName,
+            displayStyle: displayStyle,
+            sourceId: sourceId,
             versions: versions,
             createTime: createTime,
             updateTime: updateTime,
@@ -1633,6 +1890,144 @@ resources:
         }
 
         return changes;
+      }
+
+      function decodeBase64(str) {
+        if (!str) return "";
+        // Check if it's not base64 (e.g. contains spaces, newlines, or YAML delimiters like ': ')
+        if (/\s/.test(str) || str.indexOf(": ") !== -1) {
+          return str;
+        }
+        try {
+          var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+          var output = '';
+          str = String(str).replace(/=+$/, '');
+          if (str.length % 4 === 1) {
+            return str;
+          }
+          for (
+            var bc = 0, bs, buffer, idx = 0;
+            (buffer = str.charAt(idx++));
+            ~buffer && ((bs = bc % 4 ? bs * 64 + buffer : buffer),
+              bc++ % 4) ? (output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6)))) : 0
+          ) {
+            buffer = chars.indexOf(buffer);
+          }
+          return output;
+        } catch (e) {
+          return str;
+        }
+      }
+
+      function transformProductDetail(deploymentData, versionData, productKey, mockProducts) {
+        var result = {
+          id: productKey || "",
+          endpoint: "",
+          spec: null,
+          displayStyle: ""
+        };
+
+        var product = null;
+        if (mockProducts && Array.isArray(mockProducts.products)) {
+          for (var i = 0; i < mockProducts.products.length; i++) {
+            var p = mockProducts.products[i];
+            if (p && (p.id === productKey || p.productId === productKey)) {
+              product = p;
+              break;
+            }
+          }
+        }
+
+        if (product) {
+          result.displayStyle = product.displayStyle || "";
+        }
+
+        if (deploymentData) {
+          var deployments = [];
+          if (Array.isArray(deploymentData.deployments)) {
+            deployments = deploymentData.deployments;
+          } else if (Array.isArray(deploymentData)) {
+            deployments = deploymentData;
+          } else {
+            deployments = [deploymentData];
+          }
+
+          var targetVersion = product ? product.sourceId : "";
+
+          for (var d = 0; d < deployments.length; d++) {
+            var dep = deployments[d];
+            if (!dep) continue;
+
+            var match = true;
+            if (targetVersion && dep.apiVersions && Array.isArray(dep.apiVersions)) {
+              match = false;
+              for (var av = 0; av < dep.apiVersions.length; av++) {
+                if (dep.apiVersions[av] === targetVersion) {
+                  match = true;
+                  break;
+                }
+              }
+            }
+
+            if (match) {
+              var endpoints = dep.endpoints || [];
+              if (Array.isArray(endpoints) && endpoints.length > 0) {
+                var ep = endpoints[0];
+                if (typeof ep === 'string') {
+                  result.endpoint = ep;
+                } else if (ep && typeof ep === 'object' && ep.uri) {
+                  result.endpoint = ep.uri;
+                }
+              } else if (dep.resourceUri) {
+                result.endpoint = dep.resourceUri;
+              } else if (dep.deploymentUri) {
+                result.endpoint = dep.deploymentUri;
+              }
+              if (result.endpoint) {
+                break;
+              }
+            }
+          }
+        }
+
+        if (!result.endpoint && product && product.endpoints && product.endpoints.length > 0) {
+          result.endpoint = product.endpoints[0];
+        }
+
+        if (versionData) {
+          var rawSpec = null;
+          if (typeof versionData === 'string') {
+            rawSpec = versionData;
+          } else if (typeof versionData === 'object') {
+            if (versionData.contents) {
+              rawSpec = versionData.contents;
+            } else if (versionData.specs && Array.isArray(versionData.specs) && versionData.specs.length > 0) {
+              var spec = versionData.specs[0];
+              rawSpec = spec.contents || spec.value || spec;
+            } else if (versionData.value) {
+              rawSpec = versionData.value;
+            } else if (versionData.schema) {
+              rawSpec = versionData.schema;
+            } else {
+              rawSpec = versionData;
+            }
+          }
+
+          if (rawSpec) {
+            if (typeof rawSpec === 'string') {
+              var decoded = decodeBase64(rawSpec);
+              try {
+                result.spec = JSON.parse(decoded);
+              } catch (e) {
+                result.spec = decoded;
+              }
+            } else {
+              result.spec = rawSpec;
+            }
+          }
+        }
+
+        return result;
       }
 
 

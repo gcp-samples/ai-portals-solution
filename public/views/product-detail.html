@@ -49,6 +49,20 @@
           <!-- Scalar renders here -->
         </div>
       </div>
+
+      <!-- MCP Schema Explorer Section -->
+      <div class="panel detail-mcp-panel" id="detail-mcp-panel" style="display:none; margin-top:2rem;">
+        <h3 style="margin-bottom:1.5rem; display:flex; align-items:center; gap:0.5rem; font-size:1.25rem;">
+          <i data-lucide="wrench" style="width:1.25rem; height:1.25rem; color:var(--primary);"></i>
+          Model Context Protocol (MCP) Tools
+        </h3>
+        <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:1.5rem;">
+          This product provides a Model Context Protocol (MCP) server. Below are the tools and schemas exposed by this server to LLM agents.
+        </p>
+        <div class="mcp-tools-list" id="mcp-tools-list">
+          <!-- Dynamically rendered tools -->
+        </div>
+      </div>
     </div>
 
     <!-- Right Column: Subscriptions & Actions -->
@@ -288,6 +302,133 @@
   font-weight: 600;
   color: var(--text-color);
 }
+
+/* MCP Tools Explorer Styles */
+.mcp-tool-card {
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  margin-bottom: 1rem;
+  overflow: hidden;
+  transition: all var(--transition-fast) ease;
+}
+.mcp-tool-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+.mcp-tool-header {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+.mcp-tool-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.mcp-tool-name {
+  font-family: monospace;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 0.15rem;
+}
+.mcp-tool-short-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+.mcp-toggle-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--text-muted);
+  transition: transform var(--transition-fast) ease;
+}
+.mcp-tool-card.open .mcp-toggle-icon {
+  transform: rotate(180deg);
+  color: var(--primary);
+}
+.mcp-tool-details {
+  border-top: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.08);
+}
+body.light .mcp-tool-details {
+  background: rgba(0, 0, 0, 0.02);
+}
+.mcp-details-inner {
+  padding: 1.5rem;
+}
+.mcp-section-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+.mcp-params-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.mcp-param-row {
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 0.875rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.mcp-param-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 120px;
+  text-align: left;
+}
+.mcp-param-name {
+  font-family: monospace;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-color);
+}
+.mcp-param-type {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 0.1rem 0.375rem;
+  border-radius: 0.25rem;
+  width: fit-content;
+}
+.mcp-param-req {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+  padding: 0.1rem 0.375rem;
+  border-radius: 0.25rem;
+  width: fit-content;
+}
+.mcp-param-desc {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0;
+  flex-grow: 1;
+  text-align: left;
+}
 </style>
 
 <!-- Create App Dialog in Product Detail -->
@@ -352,19 +493,131 @@ async function fetchProductDetails(productId) {
       app.navigate('catalog');
       return;
     }
+
+    // Now, fetch the single product details (endpoint / spec / displayStyle) from the newly added details endpoint!
+    let details = null;
+    if (CONFIG.demoMode) {
+      // Simulate/mock details payload for local preview
+      details = {
+        id: productId,
+        endpoint: currentProduct.endpoints && currentProduct.endpoints.length > 0 ? currentProduct.endpoints[0] : "",
+        displayStyle: currentProduct.displayStyle || "REST",
+        spec: null
+      };
+
+      if (details.displayStyle === 'MCP') {
+        details.spec = {
+          "tools": [
+            {
+              "name": "query",
+              "description": "Run analytical SQL queries on the active database instances",
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "sql": { "type": "string", "description": "The raw SQL query to run against the database." }
+                },
+                "required": ["sql"]
+              }
+            },
+            {
+              "name": "get_billing_summary",
+              "description": "Get high-level billing summaries including billing cycles, invoices, and totals.",
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "accountId": { "type": "string", "description": "The ID of the account to query." },
+                  "year": { "type": "integer", "description": "Optional year filter (defaults to current year)." }
+                },
+                "required": ["accountId"]
+              }
+            }
+          ]
+        };
+      } else {
+        details.spec = `openapi: 3.0.0
+info:
+  title: ${currentProduct.displayName || currentProduct.name} Spec
+  description: Dynamic sandbox endpoint for testing the REST style AI models.
+  version: 1.0.0
+paths:
+  /chat/completions:
+    post:
+      summary: Send an AI chat generation request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                        example: user
+                      content:
+                        type: string
+                        example: Hello world!
+                temperature:
+                  type: number
+                  example: 0.7
+      responses:
+        '200':
+          description: Successful AI generation response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  choices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        message:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            content:
+                              type: string`;
+      }
+    } else {
+      try {
+        const res = await fetch(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/products/${productId}`);
+        if (res.ok) {
+          details = await res.json();
+          console.log("Fetched detailed product info from proxy:", details);
+        }
+      } catch (err) {
+        console.error("Failed to fetch product details from proxy:", err);
+      }
+    }
     
     // Fill text content
     document.getElementById('detail-title').textContent = currentProduct.displayName || currentProduct.name;
     document.getElementById('detail-desc').textContent = currentProduct.displayDescription || 'Access is available for this product on the enterprise platform.';
     
+    const styleStyle = (details && details.displayStyle) || currentProduct.displayStyle || 'REST';
     const styleBadge = document.getElementById('detail-style-badge');
-    styleBadge.textContent = currentProduct.displayStyle || 'API';
-    styleBadge.className = `style-badge ${(currentProduct.displayStyle || '').toLowerCase()}`;
+    styleBadge.textContent = styleStyle;
+    styleBadge.className = `style-badge ${styleStyle.toLowerCase()}`;
     
     // Fill endpoints list
     const endpointsList = document.getElementById('detail-endpoints-list');
     let endpointsHtml = '';
-    if (currentProduct.endpoints && currentProduct.endpoints.length > 0) {
+    const activeEndpoint = (details && details.endpoint) || (currentProduct.endpoints && currentProduct.endpoints[0]) || '';
+    if (activeEndpoint) {
+      endpointsHtml = `
+        <div class="endpoint-item">
+          <i data-lucide="server" style="width:1rem; height:1rem; color:var(--text-muted); flex-shrink:0;"></i>
+          <span>${activeEndpoint}</span>
+        </div>
+      `;
+    } else if (currentProduct.endpoints && currentProduct.endpoints.length > 0) {
       currentProduct.endpoints.forEach(ep => {
         endpointsHtml += `
           <div class="endpoint-item">
@@ -380,9 +633,9 @@ async function fetchProductDetails(productId) {
     
     // Setup Icon box
     let icon = 'globe';
-    if (currentProduct.displayStyle === 'REST') icon = 'globe';
-    if (currentProduct.displayStyle === 'MCP') icon = 'wrench';
-    if (currentProduct.displayStyle === 'A2A') icon = 'bot';
+    if (styleStyle === 'REST') icon = 'globe';
+    if (styleStyle === 'MCP') icon = 'wrench';
+    if (styleStyle === 'A2A') icon = 'bot';
     document.getElementById('detail-icon-box').innerHTML = `<i data-lucide="${icon}" style="width:2rem; height:2rem;"></i>`;
     
     // Render Pricing Packages
@@ -480,11 +733,44 @@ async function fetchProductDetails(productId) {
       pricingPanel.style.display = 'none';
     }
     
-    // Handle OpenAPI Spec rendering via Scalar for REST style
-    if (currentProduct.displayStyle === 'REST') {
-      await fetchAndRenderOpenApiSpec(productId);
+    // Render OpenAPI Spec / MCP Schema in their respective panels
+    const specPanel = document.getElementById('detail-spec-panel');
+    const mcpPanel = document.getElementById('detail-mcp-panel');
+    
+    specPanel.style.display = 'none';
+    mcpPanel.style.display = 'none';
+    
+    if (details && details.spec) {
+      if (styleStyle === 'MCP') {
+        mcpPanel.style.display = 'block';
+        renderMcpTools(details.spec);
+      } else {
+        specPanel.style.display = 'block';
+        renderScalarSpec(details.spec);
+      }
     } else {
-      document.getElementById('detail-spec-panel').style.display = 'none';
+      // Fallback if details spec is not available
+      if (styleStyle === 'MCP') {
+        mcpPanel.style.display = 'block';
+        renderMcpTools({
+          "tools": [
+            {
+              "name": "query",
+              "description": "Run analytical SQL queries on the active database instances",
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "sql": { "type": "string", "description": "The raw SQL query to run against the database." }
+                },
+                "required": ["sql"]
+              }
+            }
+          ]
+        });
+      } else {
+        specPanel.style.display = 'block';
+        await fetchAndRenderOpenApiSpec(productId);
+      }
     }
     
     lucide.createIcons();
@@ -590,6 +876,111 @@ function renderScalarSpec(specData) {
     console.error("Scalar initialization crash", err);
     referenceContainer.innerHTML = `<div style="padding:2rem; text-align:center; color:var(--text-secondary);">Interactive playgrounds require modern baseline web components.</div>`;
   }
+}
+
+function toggleMcpTool(toolId) {
+  const card = document.getElementById(`mcp-card-${toolId}`);
+  const details = document.getElementById(`mcp-details-${toolId}`);
+  if (!card || !details) return;
+  
+  const isOpen = card.classList.contains('open');
+  if (isOpen) {
+    card.classList.remove('open');
+    details.style.display = 'none';
+  } else {
+    card.classList.add('open');
+    details.style.display = 'block';
+  }
+}
+
+function renderMcpTools(spec) {
+  const toolsListContainer = document.getElementById('mcp-tools-list');
+  if (!toolsListContainer) return;
+  
+  toolsListContainer.innerHTML = '';
+  
+  let mcpSpec = null;
+  if (typeof spec === 'object' && spec !== null) {
+    mcpSpec = spec;
+  } else if (typeof spec === 'string') {
+    try {
+      mcpSpec = JSON.parse(spec);
+    } catch (e) {
+      console.error("Failed to parse MCP spec string", e);
+    }
+  }
+  
+  if (!mcpSpec || !Array.isArray(mcpSpec.tools) || mcpSpec.tools.length === 0) {
+    toolsListContainer.innerHTML = `
+      <div style="padding: 2rem; text-align: center; color: var(--text-secondary); border: 1px dashed var(--border-color); border-radius: 0.5rem; background: var(--input-bg);">
+        No tools or schema details defined for this MCP server.
+      </div>
+    `;
+    return;
+  }
+  
+  let mcpToolsHtml = '';
+  mcpSpec.tools.forEach((tool, index) => {
+    const toolId = `tool-${index}-${tool.name}`;
+    
+    // Generate parameters rows
+    let paramsHtml = '';
+    const inputSchema = tool.inputSchema || {};
+    const props = inputSchema.properties || {};
+    const required = inputSchema.required || [];
+    
+    const propKeys = Object.keys(props);
+    if (propKeys.length > 0) {
+      paramsHtml = `<div class="mcp-params-list">`;
+      propKeys.forEach(propKey => {
+        const prop = props[propKey];
+        const isRequired = required.includes(propKey);
+        const typeStr = prop.type || 'string';
+        const descStr = prop.description || 'No description provided.';
+        
+        paramsHtml += `
+          <div class="mcp-param-row">
+            <div class="mcp-param-meta">
+              <span class="mcp-param-name">${propKey}</span>
+              <span class="mcp-param-type">${typeStr}</span>
+              ${isRequired ? `<span class="mcp-param-req">Required</span>` : ''}
+            </div>
+            <p class="mcp-param-desc">${descStr}</p>
+          </div>
+        `;
+      });
+      paramsHtml += `</div>`;
+    } else {
+      paramsHtml = `<div style="font-size: 0.875rem; color: var(--text-secondary);">This tool requires no input arguments.</div>`;
+    }
+    
+    mcpToolsHtml += `
+      <div class="mcp-tool-card" id="mcp-card-${toolId}">
+        <div class="mcp-tool-header" onclick="toggleMcpTool('${toolId}')">
+          <div style="display:flex; align-items:center; gap:0.75rem; text-align: left;">
+            <div class="mcp-tool-icon">
+              <i data-lucide="wrench" style="width:1.2rem; height:1.2rem;"></i>
+            </div>
+            <div>
+              <h4 class="mcp-tool-name">${tool.name}</h4>
+              <p class="mcp-tool-short-desc">${tool.description || 'No tool description provided.'}</p>
+            </div>
+          </div>
+          <i data-lucide="chevron-down" class="mcp-toggle-icon"></i>
+        </div>
+        
+        <div class="mcp-tool-details" id="mcp-details-${toolId}" style="display:none;">
+          <div class="mcp-details-inner">
+            <div class="mcp-section-title">Arguments (Input Schema)</div>
+            ${paramsHtml}
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  toolsListContainer.innerHTML = mcpToolsHtml;
+  lucide.createIcons();
 }
 
 async function handleSubscriptionStatusUI(productId) {
