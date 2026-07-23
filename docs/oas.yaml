@@ -1,0 +1,327 @@
+openapi: 3.1.0
+info:
+  title: Gemini API
+  description: |
+    An OpenAPI 3.1.0 specification for the Google Gemini Developer API.
+    This document describes the core `/v1beta/models/{model}:generateContent` endpoint,
+    enabling integration, client SDK generation, and mock testing.
+  version: 1.0.0
+servers:
+  - url: https://generativelanguage.googleapis.com
+    description: Google Generative Language API Production Server
+paths:
+  /v1beta/models/{model}:generateContent:
+    post:
+      summary: Generate Content
+      description: |
+        Generates a response from the specified Gemini model given an input prompt or a multi-turn conversation.
+        Supports multimodal inputs, system instructions, generation configuration adjustments, and safety settings.
+      parameters:
+        - name: model
+          in: path
+          required: true
+          description: |
+            The model name to use for generating content.
+            Examples: `gemini-1.5-pro`, `gemini-1.5-flash`, `gemini-2.0-flash-exp`.
+          schema:
+            type: string
+            example: gemini-1.5-flash
+        - name: key
+          in: query
+          required: true
+          description: Your Gemini API developer key.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateContentRequest'
+      responses:
+        '200':
+          description: Successful generation response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateContentResponse'
+        '400':
+          description: Invalid request parameters or malformed JSON payload.
+        '403':
+          description: Unauthorized request or invalid API key.
+        '429':
+          description: Rate limit exceeded or quota exhausted.
+        '500':
+          description: Internal server error.
+
+components:
+  schemas:
+    GenerateContentRequest:
+      type: object
+      required:
+        - contents
+      properties:
+        contents:
+          type: array
+          description: |
+            The multi-turn conversation history. The last message in the sequence is treated as the current prompt.
+          items:
+            $ref: '#/components/schemas/Content'
+        systemInstruction:
+          $ref: '#/components/schemas/Content'
+          description: Developer-provided instructions to steer the model's behavior and tone.
+        generationConfig:
+          $ref: '#/components/schemas/GenerationConfig'
+        safetySettings:
+          type: array
+          description: Safety boundaries to apply across different harm categories.
+          items:
+            $ref: '#/components/schemas/SafetySetting'
+
+    Content:
+      type: object
+      required:
+        - parts
+      properties:
+        role:
+          type: string
+          description: The producer of the content. Typically 'user' or 'model'.
+          enum: [user, model]
+        parts:
+          type: array
+          description: Ordered list of media parts that constitute a single turn.
+          items:
+            $ref: '#/components/schemas/Part'
+
+    Part:
+      type: object
+      description: |
+        A single part of a content turn. It can contain text, inline media data, or function calling instructions.
+        For a basic text prompt, only the `text` field should be populated.
+      properties:
+        text:
+          type: string
+          description: Inline text prompt or response segment.
+        inlineData:
+          $ref: '#/components/schemas/Blob'
+        functionCall:
+          $ref: '#/components/schemas/FunctionCall'
+        functionResponse:
+          $ref: '#/components/schemas/FunctionResponse'
+
+    Blob:
+      type: object
+      description: Inline binary data (multimodal content like images, audio, or PDF documents).
+      required:
+        - mimeType
+        - data
+      properties:
+        mimeType:
+          type: string
+          description: The IANA standard MIME type of the binary data (e.g., `image/jpeg`, `application/pdf`).
+          example: image/jpeg
+        data:
+          type: string
+          description: Base64-encoded file or media data.
+          format: byte
+
+    FunctionCall:
+      type: object
+      description: Details of a tool/function call requested by the model.
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: The name of the function to call.
+        args:
+          type: object
+          description: Key-value map representing the arguments to pass to the function.
+
+    FunctionResponse:
+      type: object
+      description: The result of executing a function, passed back to the model in the conversation.
+      required:
+        - name
+        - response
+      properties:
+        name:
+          type: string
+          description: The name of the function that was executed.
+        response:
+          type: object
+          description: The structured return value of the function.
+
+    GenerationConfig:
+      type: object
+      description: Options to configure the model's text and reasoning generation behavior.
+      properties:
+        temperature:
+          type: number
+          description: Controls the randomness of the output. Ranges from [0.0, 2.0].
+          minimum: 0.0
+          maximum: 2.0
+          default: 1.0
+        topP:
+          type: number
+          description: Nucleus sampling parameter.
+          minimum: 0.0
+          maximum: 1.0
+        topK:
+          type: integer
+          description: Maximum number of tokens to consider at each step.
+          minimum: 1
+        candidateCount:
+          type: integer
+          description: Number of generated response variations to return.
+          default: 1
+        maxOutputTokens:
+          type: integer
+          description: The hard limit on how many tokens the model can generate per request.
+        stopSequences:
+          type: array
+          description: A set of up to 5 character sequences that will halt generation when encountered.
+          items:
+            type: string
+        responseMimeType:
+          type: string
+          description: Standard MIME type of the output. Set to `application/json` to enforce structured JSON output.
+          enum: [text/plain, application/json]
+          default: text/plain
+        responseSchema:
+          type: object
+          description: |
+            A schema defining the expected JSON structure when `responseMimeType` is set to `application/json`.
+            Follows a subset of the JSON Schema standard.
+
+    SafetySetting:
+      type: object
+      required:
+        - category
+        - threshold
+      properties:
+        category:
+          type: string
+          description: Harm category to evaluate and filter.
+          enum:
+            - HARM_CATEGORY_HARASSMENT
+            - HARM_CATEGORY_HATE_SPEECH
+            - HARM_CATEGORY_SEXUALLY_EXPLICIT
+            - HARM_CATEGORY_DANGEROUS_CONTENT
+            - HARM_CATEGORY_CIVIC_INTEGRITY
+        threshold:
+          type: string
+          description: Safety threshold setting.
+          enum:
+            - BLOCK_NONE
+            - BLOCK_LOW_AND_ABOVE
+            - BLOCK_MEDIUM_AND_ABOVE
+            - BLOCK_ONLY_HIGH
+
+    GenerateContentResponse:
+      type: object
+      required:
+        - candidates
+      properties:
+        candidates:
+          type: array
+          description: List of generated responses. Normally contains exactly one candidate unless `candidateCount` was adjusted.
+          items:
+            $ref: '#/components/schemas/Candidate'
+        usageMetadata:
+          $ref: '#/components/schemas/UsageMetadata'
+
+    Candidate:
+      type: object
+      required:
+        - content
+      properties:
+        index:
+          type: integer
+          description: Index of the candidate in the response list.
+        content:
+          $ref: '#/components/schemas/Content'
+        finishReason:
+          type: string
+          description: The reason the model stopped generating tokens.
+          enum:
+            - FINISH_REASON_UNSPECIFIED
+            - STOP
+            - MAX_TOKENS
+            - SAFETY
+            - RECITATION
+            - OTHER
+        safetyRatings:
+          type: array
+          items:
+            $ref: '#/components/schemas/SafetyRating'
+        citationMetadata:
+          $ref: '#/components/schemas/CitationMetadata'
+
+    SafetyRating:
+      type: object
+      required:
+        - category
+        - probability
+      properties:
+        category:
+          type: string
+          enum:
+            - HARM_CATEGORY_HARASSMENT
+            - HARM_CATEGORY_HATE_SPEECH
+            - HARM_CATEGORY_SEXUALLY_EXPLICIT
+            - HARM_CATEGORY_DANGEROUS_CONTENT
+            - HARM_CATEGORY_CIVIC_INTEGRITY
+        probability:
+          type: string
+          enum:
+            - NEGLIGIBLE
+            - LOW
+            - MEDIUM
+            - HIGH
+        blocked:
+          type: boolean
+          description: Indicates whether this candidate was blocked due to safety violations.
+
+    CitationMetadata:
+      type: object
+      description: Details regarding any source attribution or citation findings in the output.
+      properties:
+        citationSources:
+          type: array
+          items:
+            $ref: '#/components/schemas/CitationSource'
+
+    CitationSource:
+      type: object
+      properties:
+        startIndex:
+          type: integer
+          description: Zero-based character index where the attributed text starts.
+        endIndex:
+          type: integer
+          description: Zero-based character index where the attributed text ends.
+        uri:
+          type: string
+          description: The external URL to which this content is attributed.
+        license:
+          type: string
+          description: The open-source license associated with the attributed content.
+
+    UsageMetadata:
+      type: object
+      description: Token consumption details for the execution.
+      required:
+        - promptTokenCount
+        - candidatesTokenCount
+        - totalTokenCount
+      properties:
+        promptTokenCount:
+          type: integer
+          description: Number of tokens parsed from the user prompt and system instruction.
+        candidatesTokenCount:
+          type: integer
+          description: Number of tokens generated in the response.
+        totalTokenCount:
+          type: integer
+          description: Overall token consumption (Prompt + Response).

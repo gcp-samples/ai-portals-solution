@@ -7,7 +7,7 @@ The **Apigee AI Portal** is a modern, agent-centric storefront template created 
 ## Key Advantages
 
 *   **Flexible Backend Options**: Deploy with ease using either **[Cloud Run](https://cloud.google.com/run)** for a serverless experience or as an **Apigee Proxy** for integrated API management.
-* Leverages **[Google Cloud Identity Platform](https://cloud.google.com/security/products/identity-platform)** for powerful and flexible end-user authentication, with support for OIDC, Google, SAML, and many other identity providers.
+* By default uses an OIDC proxy in Apigee as IDP, but can be changed to use any OIDC server.
 *   **Seamless Integration**: Designed to integrate flawlessly with **[Apigee X](https://cloud.google.com/apigee)** and **Apigee hybrid** APIs, providing a unified management and discovery experience.
 *   **Agentic Customization**: Built for high extensibility, the portal can be easily customized using **[Antigravity](https://antigravity.google)**, **Gemini CLI**, or other agentic coding solutions, enabling rapid iteration and AI-driven development.
 *   **Enterprise-Grade Monitoring**: Fully supported through **[Google Cloud Monitoring](https://cloud.google.com/monitoring)**, ensuring you have deep visibility into portal performance and usage patterns.
@@ -19,14 +19,25 @@ The **Apigee AI Portal** is a modern, agent-centric storefront template created 
 - Google Cloud Project, Apigee, API Hub, and Identity Platform provisioned.
 - Google Cloud SDK (gcloud) installed and authenticated, or access to [Cloud Shell](https://docs.cloud.google.com/shell/docs).
 
-### Cloud Shell Lab
-Use this lab to walk through the deployment.
+## Deploy
 
-[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.png)](https://ssh.cloud.google.com/cloudshell/open?cloudshell_git_repo=https://github.com/gcp-samples/apigee-ai-portal&cloudshell_git_branch=main&cloudshell_workspace=.&cloudshell_tutorial=docs/TUTORIAL_PROXY.md)
+To deploy the solution, you will need to deploy 2 Apigee proxies and the web client, like this.
+
+```sh
+# initialize .env file
+source ./sh/initialize.sh
+
+# deploy proxies
+aft -i ./proxies/OIDC-OAuth21-IDP.yaml -o "$GOOGLE_CLOUD_PROJECT:OIDC-OAuth21-IDP:$APIGEE_ENVIRONMENT:$PROXY_SA"
+aft -i ./proxies/REST-Portals.yaml -o "$GOOGLE_CLOUD_PROJECT:REST-Portals:$APIGEE_ENVIRONMENT:$PROXY_SA"
+
+# deploy frontend to firebase hosting
+firebase deploy --project $GOOGLE_CLOUD_PROJECT
+```
 
 ## Security Configuration (OIDC Keys Setup)
 
-To secure the OIDC Identity Provider proxy, you must generate a custom RSA 2048 key pair (used for JWT signing and verification) and save it to the Apigee environment-scoped Key Value Map (**KVM**) named `OIDC-Users`.
+To secure the built-in OIDC Identity Provider proxy, you must generate a custom RSA 2048 key pair (used for JWT signing and verification) and save it to the Apigee environment-scoped Key Value Map (**KVM**) named `OIDC-Users`. You do not need to do this if you are using your own OIDC service.
 
 ### 1. Generate RSA Key Pair
 Run the following commands in your terminal or Cloud Shell to generate the keys:

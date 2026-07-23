@@ -1,9 +1,9 @@
 name: REST-Portals
 displayName: REST-Portals
-type: feature
+type: proxy
+categories: []
 description: REST-Portals
 documentation: ""
-categories: []
 parameters:
   - name: DISPLAY_NAME
     displayName: DISPLAY_NAME
@@ -23,390 +23,150 @@ parameters:
     default: null
     examples: []
     maps: {}
-defaultEndpoint:
-  name: default
-  basePath: /api/portals
-  routes:
-    - name: default
-  flows:
-    - name: PreFlow
-      mode: Request
+endpoints:
+  - name: default
+    basePath: /api/portals
+    routes:
+      - name: default
+    flows:
+      - name: PreFlow
+        mode: Request
+        steps:
+          - name: CORS-SetCors
+          - name: RC-ResponseCache
+          - name: AM-SetVariables
+          - name: KVM-LoadConfig
+          - name: JS-SetSecurityKeyNames
+          - name: KVM-GetPublicKey
+      - name: GET Products
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/*/products") and (request.verb = "GET")
+        steps:
+          - name: SC-GetAPIs
+          - name: SC-GetProducts
+          - name: JS-TransformProducts
+          - name: RC-ResponseCache
+      - name: GET Product Detail
+        mode: Request
+        condition: (proxy.pathsuffix MatchesPath "/*/products/*") and (request.verb =
+          "GET")
+        steps:
+          - name: SC-GetAPIs
+          - name: SC-GetProducts
+          - name: JS-FindProductAndSetVersion
+      - name: GET Product Detail
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/*/products/*") and (request.verb =
+          "GET")
+        steps:
+          - name: SC-GetDeployment
+          - name: SC-GetVersion
+          - name: JS-ParseSpecName
+          - name: SC-GetSpecContents
+            condition: has_specs = "true"
+          - name: JS-TransformProductDetail
+      - name: POST Login
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/*/users/*/login") and (request.verb =
+          "POST")
+        steps:
+          - name: SC-CreateUser
+      - name: GET Apps
+        mode: Request
+        condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps") and (request.verb =
+          "GET")
+        steps:
+          - name: JS-ExtractToken
+          - name: JWT-AccessToken
+      - name: GET Apps
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps") and (request.verb =
+          "GET")
+        steps:
+          - name: SC-GetApps
+          - name: JS-TransformApps
+      - name: POST Apps
+        mode: Request
+        condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps") and (request.verb =
+          "POST")
+        steps:
+          - name: JS-ExtractToken
+          - name: JWT-AccessToken
+          - name: EV-ParseUrl
+      - name: POST Apps
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps") and (request.verb =
+          "POST")
+        steps:
+          - name: JS-SetApp
+          - name: SC-CreateApp
+          - name: JS-TransformApps
+      - name: PUT App
+        mode: Request
+        condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps/*") and (request.verb
+          = "PUT")
+        steps:
+          - name: JS-ExtractToken
+          - name: JWT-AccessToken
+          - name: EV-ParseUrl
+      - name: PUT App
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps/*") and (request.verb
+          = "PUT")
+        steps:
+          - name: SC-GetApp
+          - name: JS-SetApp
+          - name: SC-AddAppProduct
+            condition: appOperation = "ADDED"
+          - name: SC-RemoveAppProduct
+            condition: appOperation = "REMOVED"
+          - name: JS-TransformApps
+      - name: GET Analytics
+        mode: Request
+        condition: (proxy.pathsuffix MatchesPath "/*/users/*/analytics") and
+          (request.verb = "GET")
+        steps:
+          - name: JS-ExtractToken
+          - name: JWT-AccessToken
+      - name: GET Analytics
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/*/users/*/analytics") and
+          (request.verb = "GET")
+        steps:
+          - name: JS-SetTimeRange
+          - name: SC-GetAnalyticsApp
+          - name: SC-GetAnalyticsProduct
+          - name: SC-GetAnalyticsModel
+          - name: JS-SetAnalyticsResponse
+      - name: GET Portals
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/*") and (request.verb = "GET")
+        steps:
+          - name: JS-GetPortal
+      - name: POST MCP
+        mode: Request
+        condition: (proxy.pathsuffix MatchesPath "/mcp") and (request.verb = "POST")
+        steps:
+          - name: JS-ExtractToken
+          - name: JWT-AccessToken
+      - name: POST MCP
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/mcp") and (request.verb = "POST")
+        steps:
+          - name: JS-MCP
+      - name: GET WellKnown
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath
+          "/.well-known/oauth-protected-resource") and (request.verb = "GET")
+        steps:
+          - name: JS-SetWellKnown
+    faultRules: []
+    defaultFaultRule:
+      name: default-fault
       steps:
-        - name: CORS-SetCors
-        - name: RC-ResponseCache
-        - name: AM-SetVariables
-        - name: KVM-LoadConfig
-        - name: JS-SetSecurityKeyNames
-        - name: KVM-GetPublicKey
-    - name: GET Products
-      mode: Response
-      condition: (proxy.pathsuffix MatchesPath "/*/products") and (request.verb = "GET")
-      steps:
-        - name: SC-GetAPIs
-        - name: SC-GetProducts
-        - name: JS-TransformProducts
-        - name: RC-ResponseCache
-    - name: GET Product Detail
-      mode: Request
-      condition: (proxy.pathsuffix MatchesPath "/*/products/*") and (request.verb = "GET")
-      steps:
-        - name: SC-GetAPIs
-        - name: SC-GetProducts
-        - name: JS-FindProductAndSetVersion
-    - name: GET Product Detail
-      mode: Response
-      condition: (proxy.pathsuffix MatchesPath "/*/products/*") and (request.verb = "GET")
-      steps:
-        - name: SC-GetDeployment
-        - name: SC-GetVersion
-        - name: JS-ParseSpecName
-        - name: SC-GetSpecContents
-          condition: has_specs = "true"
-        - name: JS-TransformProductDetail
-    - name: POST Login
-      mode: Response
-      condition: (proxy.pathsuffix MatchesPath "/*/users/*/login") and (request.verb =
-        "POST")
-      steps:
-        - name: SC-CreateUser
-    - name: GET Apps
-      mode: Request
-      condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps") and (request.verb =
-        "GET")
-      steps:
-        - name: JS-ExtractToken
-        - name: JWT-AccessToken
-    - name: GET Apps
-      mode: Response
-      condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps") and (request.verb =
-        "GET")
-      steps:
-        - name: SC-GetApps
-        - name: JS-TransformApps
-    - name: POST Apps
-      mode: Request
-      condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps") and (request.verb =
-        "POST")
-      steps:
-        - name: JS-ExtractToken
-        - name: JWT-AccessToken
-        - name: EV-ParseUrl
-    - name: POST Apps
-      mode: Response
-      condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps") and (request.verb =
-        "POST")
-      steps:
-        - name: JS-SetApp
-        - name: SC-CreateApp
-        - name: JS-TransformApps
-    - name: PUT App
-      mode: Request
-      condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps/*") and (request.verb
-        = "PUT")
-      steps:
-        - name: JS-ExtractToken
-        - name: JWT-AccessToken
-        - name: EV-ParseUrl
-    - name: PUT App
-      mode: Response
-      condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps/*") and (request.verb
-        = "PUT")
-      steps:
-        - name: SC-GetApp
-        - name: JS-SetApp
-        - name: SC-AddAppProduct
-          condition: appOperation = "ADDED"
-        - name: SC-RemoveAppProduct
-          condition: appOperation = "REMOVED"
-        - name: JS-TransformApps
-    - name: GET Analytics
-      mode: Request
-      condition: (proxy.pathsuffix MatchesPath "/*/users/*/analytics") and
-        (request.verb = "GET")
-      steps:
-        - name: JS-ExtractToken
-        - name: JWT-AccessToken
-    - name: GET Analytics
-      mode: Response
-      condition: (proxy.pathsuffix MatchesPath "/*/users/*/analytics") and
-        (request.verb = "GET")
-      steps:
-        - name: JS-SetTimeRange
-        - name: SC-GetAnalyticsApp
-        - name: SC-GetAnalyticsProduct
-        - name: SC-GetAnalyticsModel
-        - name: JS-SetAnalyticsResponse
-    - name: GET Portals
-      mode: Response
-      condition: (proxy.pathsuffix MatchesPath "/*") and (request.verb = "GET")
-      steps:
-        - name: JS-GetPortal
-    - name: POST MCP
-      mode: Request
-      condition: (proxy.pathsuffix MatchesPath "/mcp") and (request.verb = "POST")
-      steps:
-        - name: JS-ExtractToken
-        - name: JWT-AccessToken
-    - name: POST MCP
-      mode: Response
-      condition: (proxy.pathsuffix MatchesPath "/mcp") and (request.verb = "POST")
-      steps:
-        - name: JS-MCP
-    - name: GET WellKnown
-      mode: Response
-      condition: (proxy.pathsuffix MatchesPath
-        "/.well-known/oauth-protected-resource") and (request.verb = "GET")
-      steps:
-        - name: JS-SetWellKnown
-  faultRules: []
-  defaultFaultRule:
-    name: default-fault
-    steps:
-      - name: AM-SetWellKnown
-endpoints: []
+        - name: AM-SetWellKnown
 targets: []
 policies:
-  - name: JS-FindProductAndSetVersion
-    type: Javascript
-    content:
-      javascript:
-        metadata:
-          continueOnError: "false"
-          enabled: "true"
-          timeLimit: "200"
-          name: JS-FindProductAndSetVersion
-        displayName: JS-FindProductAndSetVersion
-        properties: {}
-        source: |
-          var paths = context.getVariable("proxy.pathsuffix").split("/");
-          var productId = paths[paths.length - 1];
-          context.setVariable("productId", productId);
-
-          var apisRaw = context.getVariable("response.content");
-          var productsRaw = context.getVariable("productResponse.content");
-
-          if (apisRaw && productsRaw) {
-            try {
-              var apisObject = JSON.parse(apisRaw);
-              var productsObject = JSON.parse(productsRaw);
-              var result = transformApisToProducts(apisObject, productsObject);
-              if (result && Array.isArray(result.products)) {
-                var foundProduct = null;
-                for (var i = 0; i < result.products.length; i++) {
-                  var p = result.products[i];
-                  if (p && (p.id === productId || p.productId === productId)) {
-                    foundProduct = p;
-                    break;
-                  }
-                }
-
-                if (foundProduct) {
-                  context.setVariable("apihub_version_name", foundProduct.sourceId);
-                  context.setVariable("product_display_style", foundProduct.displayStyle);
-                  context.setVariable("realProductJson", JSON.stringify(foundProduct));
-                }
-              }
-            } catch (e) {
-              print("Error in JS-FindProductAndSetVersion: " + e);
-            }
-          }
-        includeUrl: jsc://transformations.js
-  - name: SC-GetDeployment
-    type: ServiceCallout
-    content:
-      serviceCallout:
-        metadata:
-          continueOnError: "true"
-          enabled: "true"
-          name: SC-GetDeployment
-        displayName: SC-GetDeployment
-        properties: {}
-        request:
-          metadata:
-            clearPayload: "true"
-            variable: myRequest
-          ignoreUnresolvedVariables: "false"
-        response: deploymentResponse
-        httpTargetConnection:
-          properties: {}
-          url: https://apihub.googleapis.com/v1/projects/{organization.name}/locations/{system.region.name}/deployments
-          authentication:
-            googleAccessToken:
-              scopes:
-                scope: https://www.googleapis.com/auth/cloud-platform
-  - name: SC-GetVersion
-    type: ServiceCallout
-    content:
-      serviceCallout:
-        metadata:
-          continueOnError: "true"
-          enabled: "true"
-          name: SC-GetVersion
-        displayName: SC-GetVersion
-        properties: {}
-        request:
-          metadata:
-            clearPayload: "true"
-            variable: myRequest
-          ignoreUnresolvedVariables: "false"
-        response: versionResponse
-        httpTargetConnection:
-          properties: {}
-          url: https://apihub.googleapis.com/v1/{apihub_version_name}/specs
-          authentication:
-            googleAccessToken:
-              scopes:
-                scope: https://www.googleapis.com/auth/cloud-platform
-  - name: JS-ParseSpecName
-    type: Javascript
-    content:
-      javascript:
-        metadata:
-          continueOnError: "true"
-          enabled: "true"
-          timeLimit: "200"
-          name: JS-ParseSpecName
-        displayName: JS-ParseSpecName
-        properties: {}
-        source: |
-          try {
-            var raw = context.getVariable("versionResponse.content");
-            if (raw) {
-              var versionData = JSON.parse(raw);
-              if (versionData && versionData.specs && versionData.specs.length > 0) {
-                var firstSpec = versionData.specs[0];
-                if (firstSpec && firstSpec.name) {
-                  context.setVariable("apihub_spec_contents_url", firstSpec.name);
-                  context.setVariable("has_specs", "true");
-                } else {
-                  context.setVariable("has_specs", "false");
-                }
-              } else {
-                context.setVariable("has_specs", "false");
-              }
-            } else {
-              context.setVariable("has_specs", "false");
-            }
-          } catch(e) {
-            context.setVariable("has_specs", "false");
-          }
-  - name: SC-GetSpecContents
-    type: ServiceCallout
-    content:
-      serviceCallout:
-        metadata:
-          continueOnError: "true"
-          enabled: "true"
-          name: SC-GetSpecContents
-        displayName: SC-GetSpecContents
-        properties: {}
-        request:
-          metadata:
-            clearPayload: "true"
-            variable: myRequest
-          ignoreUnresolvedVariables: "false"
-        response: specContentsResponse
-        httpTargetConnection:
-          properties: {}
-          url: https://apihub.googleapis.com/v1/{apihub_spec_contents_url}:contents
-          authentication:
-            googleAccessToken:
-              scopes:
-                scope: https://www.googleapis.com/auth/cloud-platform
-  - name: JS-TransformProductDetail
-
-    type: Javascript
-    content:
-      javascript:
-        metadata:
-          continueOnError: "false"
-          enabled: "true"
-          timeLimit: "200"
-          name: JS-TransformProductDetail
-        displayName: JS-TransformProductDetail
-        properties: {}
-        source: |
-          var productId = context.getVariable("productId");
-          var deploymentRaw = context.getVariable("deploymentResponse.content");
-          var versionRaw = context.getVariable("specContentsResponse.content") || context.getVariable("versionResponse.content");
-          var realProductJson = context.getVariable("realProductJson");
-
-          var deploymentData = null;
-          if (deploymentRaw) {
-            try {
-              deploymentData = JSON.parse(deploymentRaw);
-            } catch(e) {}
-          }
-
-          var versionData = null;
-          if (versionRaw) {
-            try {
-              versionData = JSON.parse(versionRaw);
-            } catch(e) {}
-          }
-
-          var mockProducts = null;
-          var realProduct = null;
-          if (realProductJson) {
-            try {
-              realProduct = JSON.parse(realProductJson);
-              mockProducts = { "products": [realProduct] };
-            } catch(e) {}
-          }
-
-          var result = transformProductDetail(deploymentData, versionData, productId, mockProducts);
-
-          if (!result.spec) {
-            if (result.displayStyle === "MCP") {
-              result.spec = {
-                "tools": [
-                  {
-                    "name": "query",
-                    "description": "Run analytical SQL queries",
-                    "inputSchema": {
-                      "type": "object",
-                      "properties": {
-                        "sql": { "type": "string" }
-                      },
-                      "required": ["sql"]
-                    }
-                  }
-                ]
-              };
-            } else {
-              var displayName = (realProduct && (realProduct.displayName || realProduct.name)) || productId;
-              result.spec = "openapi: 3.0.0\ninfo:\n  title: " + displayName + " Spec\n  version: 1.0.0\npaths:\n  /:\n    get:\n      responses:\n        '200':\n          description: Success";
-            }
-          }
-
-          response.content = JSON.stringify(result);
-          response.headers["Content-Type"] = "application/json";
-        includeUrl: jsc://transformations.js
-  - name: JS-SetSecurityKeyNames
-    type: Javascript
-    content:
-      javascript:
-        metadata:
-          name: JS-SetSecurityKeyNames
-        displayName: JS-SetSecurityKeyNames
-        properties: {}
-        source: |
-          context.setVariable("kvm_public_key_ref", "key:public_key");
-  - name: KVM-GetPublicKey
-    type: KeyValueMapOperations
-    content:
-      keyValueMapOperations:
-        metadata:
-          name: KVM-GetPublicKey
-          mapIdentifier: OIDC-Users
-        scope: environment
-        get:
-          - metadata:
-              assignTo: public.key
-            key:
-              parameter:
-                metadata:
-                  ref: kvm_public_key_ref
   - name: AM-SetVariables
     type: AssignMessage
     content:
@@ -479,9 +239,12 @@ policies:
         properties: {}
         uriPath:
           pattern:
-            metadata:
-              ignoreCase: "false"
-            value: /{portalId}/users/{userEmail}/apps/{appName}
+            - metadata:
+                ignoreCase: "false"
+              value: /{portalId}/users/{userEmail}/apps/{appName}
+            - metadata:
+                ignoreCase: "false"
+              value: /{portalId}/users/{userEmail}/apps
         ignoreUnresolvedVariables: "true"
         source:
           metadata:
@@ -508,6 +271,51 @@ policies:
             }
             context.setVariable("extracted_access_token", token);
           }
+  - name: JS-FindProductAndSetVersion
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-FindProductAndSetVersion
+        displayName: JS-FindProductAndSetVersion
+        properties: {}
+        source: |
+          var paths = context.getVariable("proxy.pathsuffix").split("/");
+          var productId = paths[paths.length - 1];
+          context.setVariable("productId", productId);
+
+          var apisRaw = context.getVariable("response.content");
+          var productsRaw = context.getVariable("productResponse.content");
+
+          if (apisRaw && productsRaw) {
+            try {
+              var apisObject = JSON.parse(apisRaw);
+              var productsObject = JSON.parse(productsRaw);
+              var result = transformApisToProducts(apisObject, productsObject);
+              if (result && Array.isArray(result.products)) {
+                var foundProduct = null;
+                for (var i = 0; i < result.products.length; i++) {
+                  var p = result.products[i];
+                  if (p && (p.id === productId || p.productId === productId)) {
+                    foundProduct = p;
+                    break;
+                  }
+                }
+
+                if (foundProduct) {
+                  context.setVariable("apihub_version_name", foundProduct.sourceId);
+                  context.setVariable("product_display_style", foundProduct.displayStyle);
+                  context.setVariable("realProductJson", JSON.stringify(foundProduct));
+                }
+              }
+            } catch (e) {
+              print("Error in JS-FindProductAndSetVersion: " + e);
+            }
+          }
+        includeUrl: jsc://transformations.js
   - name: JS-GetPortal
     type: Javascript
     content:
@@ -636,6 +444,39 @@ policies:
 
           \  "
         includeUrl: jsc://mcp.js
+  - name: JS-ParseSpecName
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-ParseSpecName
+        displayName: JS-ParseSpecName
+        properties: {}
+        source: |
+          try {
+            var raw = context.getVariable("versionResponse.content");
+            if (raw) {
+              var versionData = JSON.parse(raw);
+              if (versionData && versionData.specs && versionData.specs.length > 0) {
+                var firstSpec = versionData.specs[0];
+                if (firstSpec && firstSpec.name) {
+                  context.setVariable("apihub_spec_contents_url", firstSpec.name);
+                  context.setVariable("has_specs", "true");
+                } else {
+                  context.setVariable("has_specs", "false");
+                }
+              } else {
+                context.setVariable("has_specs", "false");
+              }
+            } else {
+              context.setVariable("has_specs", "false");
+            }
+          } catch(e) {
+            context.setVariable("has_specs", "false");
+          }
   - name: JS-SetAnalyticsResponse
     type: Javascript
     content:
@@ -727,6 +568,16 @@ policies:
 
           \  "
         includeUrl: jsc://transformations.js
+  - name: JS-SetSecurityKeyNames
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          name: JS-SetSecurityKeyNames
+        displayName: JS-SetSecurityKeyNames
+        properties: {}
+        source: |
+          context.setVariable("kvm_public_key_ref", "key:public_key");
   - name: JS-SetTimeRange
     type: Javascript
     content:
@@ -765,9 +616,9 @@ policies:
 
           \    response.content = JSON.stringify({
 
-          \  \"resource\": \"https://8.232.129.124.nip.io/api/portals/mcp\",\
-
-          \  \"authorization_servers\": [
+          \  \"resource\":
+          \"https://8.232.129.124.nip.io/api/portals/mcp\",   \"authorization_s\
+          ervers\": [
 
           \    \"https://8.232.129.124.nip.io\"
 
@@ -832,6 +683,74 @@ policies:
 
           \  "
         includeUrl: jsc://transformations.js
+  - name: JS-TransformProductDetail
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-TransformProductDetail
+        displayName: JS-TransformProductDetail
+        properties: {}
+        source: |
+          var productId = context.getVariable("productId");
+          var deploymentRaw = context.getVariable("deploymentResponse.content");
+          var versionRaw = context.getVariable("specContentsResponse.content") || context.getVariable("versionResponse.content");
+          var realProductJson = context.getVariable("realProductJson");
+
+          var deploymentData = null;
+          if (deploymentRaw) {
+            try {
+              deploymentData = JSON.parse(deploymentRaw);
+            } catch(e) {}
+          }
+
+          var versionData = null;
+          if (versionRaw) {
+            try {
+              versionData = JSON.parse(versionRaw);
+            } catch(e) {}
+          }
+
+          var mockProducts = null;
+          var realProduct = null;
+          if (realProductJson) {
+            try {
+              realProduct = JSON.parse(realProductJson);
+              mockProducts = { "products": [realProduct] };
+            } catch(e) {}
+          }
+
+          var result = transformProductDetail(deploymentData, versionData, productId, mockProducts);
+
+          if (!result.spec) {
+            if (result.displayStyle === "MCP") {
+              result.spec = {
+                "tools": [
+                  {
+                    "name": "query",
+                    "description": "Run analytical SQL queries",
+                    "inputSchema": {
+                      "type": "object",
+                      "properties": {
+                        "sql": { "type": "string" }
+                      },
+                      "required": ["sql"]
+                    }
+                  }
+                ]
+              };
+            } else {
+              var displayName = (realProduct && (realProduct.displayName || realProduct.name)) || productId;
+              result.spec = "openapi: 3.0.0\ninfo:\n  title: " + displayName + " Spec\n  version: 1.0.0\npaths:\n  /:\n    get:\n      responses:\n        '200':\n          description: Success";
+            }
+          }
+
+          response.content = JSON.stringify(result);
+          response.headers["Content-Type"] = "application/json";
+        includeUrl: jsc://transformations.js
   - name: JS-TransformProducts
     type: Javascript
     content:
@@ -883,6 +802,21 @@ policies:
             metadata:
               ref: public.key
         issuer: https://8.232.129.124.nip.io
+  - name: KVM-GetPublicKey
+    type: KeyValueMapOperations
+    content:
+      keyValueMapOperations:
+        metadata:
+          name: KVM-GetPublicKey
+          mapIdentifier: OIDC-Users
+        scope: environment
+        get:
+          metadata:
+            assignTo: public.key
+          key:
+            parameter:
+              metadata:
+                ref: kvm_public_key_ref
   - name: KVM-LoadConfig
     type: KeyValueMapOperations
     content:
@@ -919,7 +853,7 @@ policies:
       responseCache:
         metadata:
           continueOnError: "false"
-          enabled: "false"
+          enabled: "true"
           name: RC-ResponseCache
         displayName: RC-ResponseCache
         cacheKey:
@@ -1162,6 +1096,29 @@ policies:
             googleAccessToken:
               scopes:
                 scope: https://www.googleapis.com/auth/cloud-platform
+  - name: SC-GetDeployment
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-GetDeployment
+        displayName: SC-GetDeployment
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+        response: deploymentResponse
+        httpTargetConnection:
+          properties: {}
+          url: https://apihub.googleapis.com/v1/projects/{organization.name}/locations/{system.region.name}/deployments
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
   - name: SC-GetProducts
     type: ServiceCallout
     content:
@@ -1181,6 +1138,52 @@ policies:
         httpTargetConnection:
           properties: {}
           url: https://apigee.googleapis.com/v1/organizations/{organization.name}/apiproducts?expand=true
+  - name: SC-GetSpecContents
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-GetSpecContents
+        displayName: SC-GetSpecContents
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+        response: specContentsResponse
+        httpTargetConnection:
+          properties: {}
+          url: https://apihub.googleapis.com/v1/{apihub_spec_contents_url}:contents
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
+  - name: SC-GetVersion
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-GetVersion
+        displayName: SC-GetVersion
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+        response: versionResponse
+        httpTargetConnection:
+          properties: {}
+          url: https://apihub.googleapis.com/v1/{apihub_version_name}/specs
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
   - name: SC-RemoveAppProduct
     type: ServiceCallout
     content:

@@ -25,6 +25,13 @@ defaultEndpoint:
         and (request.verb = "GET")
       steps:
         - name: JS-OidcConfig
+    - name: GET AI Catalog
+      mode: Response
+      condition: (proxy.pathsuffix MatchesPath "/.well-known/ai-catalog.json")
+        and (request.verb = "GET")
+      steps:
+        - name: SC-GetAPIs
+        - name: JS-BuildAiCatalog
     - name: GET JWKS
       mode: Response
       condition: (proxy.pathsuffix MatchesPath "/jwks.json") and (request.verb = "GET")
@@ -2558,6 +2565,155 @@ policies:
               parameter:
                 metadata:
                   ref: kvm_jwks_ref
+  - name: SC-GetAPIs
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: SC-GetAPIs
+        displayName: SC-GetAPIs
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+        response: response
+        httpTargetConnection:
+          properties: {}
+          url: https://apihub.googleapis.com/v1/projects/{organization.name}/locations/{system.region.name}/apis
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
+  - name: JS-BuildAiCatalog
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-BuildAiCatalog
+        displayName: JS-BuildAiCatalog
+        properties: {}
+        source: |
+          try {
+            var scheme = context.getVariable("client.scheme") || "https";
+            var host = context.getVariable("request.header.host") || "localhost";
+            var baseUrl = scheme + "://" + host;
+
+            var apisRaw = context.getVariable("response.content");
+            var entries = [];
+
+            if (apisRaw) {
+              var apisData = JSON.parse(apisRaw);
+              if (apisData && Array.isArray(apisData.apis)) {
+                for (var i = 0; i < apisData.apis.length; i++) {
+                  var api = apisData.apis[i];
+                  if (!api) continue;
+
+                  var id = api.name ? api.name.split("/").pop() : "";
+                  var displayName = api.displayName || id;
+                  
+                  // Determine style (REST or MCP)
+                  var displayStyle = "REST";
+                  var systemStyleObj = api.apiStyle || api.api_style;
+                  if (
+                    systemStyleObj &&
+                    systemStyleObj.enumValues &&
+                    systemStyleObj.enumValues.values &&
+                    systemStyleObj.enumValues.values[0]
+                  ) {
+                    displayStyle = systemStyleObj.enumValues.values[0].displayName || systemStyleObj.enumValues.values[0].id || displayStyle;
+                  }
+
+                  // Determine IANA media type
+                  var type = "application/openapi+json";
+                  if (displayStyle === "MCP" || displayStyle === "mcp-api") {
+                    type = "application/mcp+json";
+                  }
+
+                  // Extract description
+                  var description = api.description || displayName || "";
+
+                  // Build representative queries based on name / tags / description
+                  var representativeQueries = [];
+                  if (displayStyle === "MCP" || id.indexOf("Billing") !== -1 || displayName.indexOf("Billing") !== -1) {
+                    representativeQueries = [
+                      "Query my billing history or invoices",
+                      "Submit an invoice dispute case or billing contest request",
+                      "Retrieve detailed invoice amounts and line-items"
+                    ];
+                  } else {
+                    representativeQueries = [
+                      "What developer portals are available",
+                      "Get details for a specific API product"
+                    ];
+                  }
+
+                  // Extract tags
+                  var tags = [];
+                  if (api.attributes) {
+                    var keys = Object.keys(api.attributes);
+                    for (var k = 0; k < keys.length; k++) {
+                      var key = keys[k];
+                      var attr = api.attributes[key];
+                      if (key.slice(-5) === "/tags") {
+                        tags = (attr && attr.stringValues && attr.stringValues.values) || [];
+                      }
+                    }
+                  }
+                  if (tags.length === 0) {
+                    tags = [displayStyle.toLowerCase(), "api-hub"];
+                  }
+
+                  // The product details URL of the portal represents the spec/schema entry endpoint
+                  var specUrl = baseUrl + "/api/portals/default/products/" + id;
+
+                  entries.push({
+                    id: id,
+                    displayName: displayName,
+                    description: description,
+                    type: type,
+                    url: specUrl,
+                    representativeQueries: representativeQueries,
+                    tags: tags
+                  });
+                }
+              }
+            }
+
+            // Root ARD ai-catalog.json manifest
+            var catalog = {
+              specVersion: "1.0",
+              host: {
+                displayName: "Apigee Developer Portal Identity Provider & Agent Service Catalog",
+                identifier: baseUrl,
+                documentationUrl: baseUrl + "/docs"
+              },
+              entries: entries
+            };
+
+            context.setVariable("response.content", JSON.stringify(catalog));
+            context.setVariable("response.header.Content-Type", "application/json");
+            context.setVariable("response.status.code", 200);
+
+          } catch(e) {
+            // Graceful fallback if anything goes wrong
+            var defaultCatalog = {
+              specVersion: "1.0",
+              host: {
+                displayName: "Apigee Identity Provider Catalog",
+                identifier: "https://localhost:8080"
+              },
+              entries: []
+            };
+            context.setVariable("response.content", JSON.stringify(defaultCatalog));
+            context.setVariable("response.header.Content-Type", "application/json");
+          }
 resources:
   - name: oidc.properties
     type: properties

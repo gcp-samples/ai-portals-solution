@@ -722,6 +722,10 @@ class AppPortal {
               <i data-lucide="line-chart" style="width:1rem; height:1rem;"></i>
               Analytics
             </div>
+            <div class="dropdown-item" onclick="app.navigate('ard')">
+              <i data-lucide="compass" style="width:1rem; height:1rem;"></i>
+              Discovery (ARD)
+            </div>
             <div style="border-top:1px solid var(--border-color); margin:0.25rem 0;"></div>
             <div class="dropdown-item danger" onclick="app.signOut()">
               <i data-lucide="log-out" style="width:1rem; height:1rem;"></i>
@@ -757,7 +761,7 @@ class AppPortal {
     }
 
     // Route guarding
-    if ((view === "apps" || view === "analytics") && !this.user) {
+    if ((view === "apps" || view === "analytics" || view === "ard") && !this.user) {
       this.showToast("Please sign in to view this section", "warning");
       this.navigate("home");
       return;
