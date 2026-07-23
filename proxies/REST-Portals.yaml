@@ -35,11 +35,15 @@ defaultEndpoint:
         - name: CORS-SetCors
         - name: RC-ResponseCache
         - name: AM-SetVariables
+        - name: KVM-LoadConfig
+        - name: JS-SetSecurityKeyNames
+        - name: KVM-GetPublicKey
     - name: GET Products
       mode: Response
       condition: (proxy.pathsuffix MatchesPath "/*/products") and (request.verb = "GET")
       steps:
         - name: SC-GetAPIs
+        - name: SC-GetProducts
         - name: JS-TransformProducts
         - name: RC-ResponseCache
     - name: POST Login
@@ -53,7 +57,8 @@ defaultEndpoint:
       condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps") and (request.verb =
         "GET")
       steps:
-        - name: JWT-VerifyToken
+        - name: JS-ExtractToken
+        - name: JWT-AccessToken
     - name: GET Apps
       mode: Response
       condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps") and (request.verb =
@@ -61,12 +66,49 @@ defaultEndpoint:
       steps:
         - name: SC-GetApps
         - name: JS-TransformApps
+    - name: POST Apps
+      mode: Request
+      condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps") and (request.verb =
+        "POST")
+      steps:
+        - name: JS-ExtractToken
+        - name: JWT-AccessToken
+        - name: EV-ParseUrl
+    - name: POST Apps
+      mode: Response
+      condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps") and (request.verb =
+        "POST")
+      steps:
+        - name: JS-SetApp
+        - name: SC-CreateApp
+        - name: JS-TransformApps
+    - name: PUT App
+      mode: Request
+      condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps/*") and (request.verb
+        = "PUT")
+      steps:
+        - name: JS-ExtractToken
+        - name: JWT-AccessToken
+        - name: EV-ParseUrl
+    - name: PUT App
+      mode: Response
+      condition: (proxy.pathsuffix MatchesPath "/*/users/*/apps/*") and (request.verb
+        = "PUT")
+      steps:
+        - name: SC-GetApp
+        - name: JS-SetApp
+        - name: SC-AddAppProduct
+          condition: appOperation = "ADDED"
+        - name: SC-RemoveAppProduct
+          condition: appOperation = "REMOVED"
+        - name: JS-TransformApps
     - name: GET Analytics
       mode: Request
       condition: (proxy.pathsuffix MatchesPath "/*/users/*/analytics") and
         (request.verb = "GET")
       steps:
-        - name: JWT-VerifyToken
+        - name: JS-ExtractToken
+        - name: JWT-AccessToken
     - name: GET Analytics
       mode: Response
       condition: (proxy.pathsuffix MatchesPath "/*/users/*/analytics") and
@@ -82,10 +124,56 @@ defaultEndpoint:
       condition: (proxy.pathsuffix MatchesPath "/*") and (request.verb = "GET")
       steps:
         - name: JS-GetPortal
+    - name: POST MCP
+      mode: Request
+      condition: (proxy.pathsuffix MatchesPath "/mcp") and (request.verb = "POST")
+      steps:
+        - name: JS-ExtractToken
+        - name: JWT-AccessToken
+    - name: POST MCP
+      mode: Response
+      condition: (proxy.pathsuffix MatchesPath "/mcp") and (request.verb = "POST")
+      steps:
+        - name: JS-MCP
+    - name: GET WellKnown
+      mode: Response
+      condition: (proxy.pathsuffix MatchesPath
+        "/.well-known/oauth-protected-resource") and (request.verb = "GET")
+      steps:
+        - name: JS-SetWellKnown
   faultRules: []
+  defaultFaultRule:
+    name: default-fault
+    steps:
+      - name: AM-SetWellKnown
 endpoints: []
 targets: []
 policies:
+  - name: JS-SetSecurityKeyNames
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          name: JS-SetSecurityKeyNames
+        displayName: JS-SetSecurityKeyNames
+        properties: {}
+        source: |
+          context.setVariable("kvm_public_key_ref", "key:public_key");
+  - name: KVM-GetPublicKey
+    type: KeyValueMapOperations
+    content:
+      keyValueMapOperations:
+        metadata:
+          name: KVM-GetPublicKey
+          mapIdentifier: OIDC-Users
+        scope: environment
+        get:
+          - metadata:
+              assignTo: public.key
+            key:
+              parameter:
+                metadata:
+                  ref: kvm_public_key_ref
   - name: AM-SetVariables
     type: AssignMessage
     content:
@@ -105,6 +193,30 @@ policies:
             createNew: "false"
             transport: http
             type: request
+  - name: AM-SetWellKnown
+    type: AssignMessage
+    content:
+      assignMessage:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: AM-SetWellKnown
+        displayName: AM-SetWellKnown
+        properties: {}
+        set:
+          headers:
+            header:
+              metadata:
+                name: WWW-Authenticate
+              value: Bearer
+                resource_metadata="https://8.232.129.124.nip.io/.well-known/oauth-protected-resource"
+        comment: " Crucial step: Assign this to the error context "
+        assignTo:
+          metadata:
+            createNew: "false"
+            transport: http
+            type: response
+          value: error
   - name: CORS-SetCors
     type: CORS
     content:
@@ -122,6 +234,47 @@ policies:
         allowCredentials: "false"
         generatePreflightResponse: "true"
         ignoreUnresolvedVariables: "true"
+  - name: EV-ParseUrl
+    type: ExtractVariables
+    content:
+      extractVariables:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: EV-ParseUrl
+        displayName: EV-ParseUrl
+        properties: {}
+        uriPath:
+          pattern:
+            metadata:
+              ignoreCase: "false"
+            value: /{portalId}/users/{userEmail}/apps/{appName}
+        ignoreUnresolvedVariables: "true"
+        source:
+          metadata:
+            clearPayload: "false"
+          value: request
+        variablePrefix: {}
+  - name: JS-ExtractToken
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-ExtractToken
+        displayName: JS-ExtractToken
+        properties: {}
+        source: |
+          var authHeader = context.getVariable("request.header.Authorization");
+          if (authHeader) {
+            var token = authHeader.trim();
+            if (token.toLowerCase().indexOf("bearer ") === 0) {
+              token = token.slice(7).trim();
+            }
+            context.setVariable("extracted_access_token", token);
+          }
   - name: JS-GetPortal
     type: Javascript
     content:
@@ -138,46 +291,118 @@ policies:
           \    var urlParts =
           context.getVariable(\"request.path\").split(\"/\");
 
-          \    var match = portalsConfig.filter(function(portal) {
+          \    var portalId = urlParts[urlParts.length - 1];
 
-          \      return portal.id == urlParts[urlParts.length - 1];
+          \    // var match = portalsConfig.filter(function(portal) {
 
-          \    })[0];
+          \    //  return portal.id == urlParts[urlParts.length - 1];
+
+          \    //})[0];
 
 
-          \    var displayName =
+          \    // var displayName =
           context.getVariable(\"propertyset.portals.DISPLAY_NAME\");
 
-          \    var authApiKey =
-          context.getVariable(\"propertyset.portals.AUTH_API_KEY\");
+          \    var authApiKey = context.getVariable(\"portalAuthApiKey\");
 
-          \    var authDomain =
-          context.getVariable(\"propertyset.portals.AUTH_DOMAIN\");
+          \    var authDomain = context.getVariable(\"portalAuthDomain\");
+
+          \    var portalTitle = context.getVariable(\"portalTitle\");
 
 
           \    if (!authDomain) authDomain =
           context.getVariable(\"organization.name\") + \".firebaseapp.com\";
 
 
-          \    if (match) {
+          \    var result = {
 
-          \      if (displayName) match.name = displayName;
+          \      name: portalTitle,
 
-          \      if (authApiKey) match.authApiKey = authApiKey;
+          \      authApiKey: authApiKey,
 
-          \      if (authDomain) match.authDomain = authDomain;
+          \      authDomain: authDomain
 
-          \      context.setVariable(\"response.content\",
+          \    };
+
+          \    context.setVariable(\"response.content\",
+          JSON.stringify(result));
+
+
+          \    //if (match) {
+
+          \    //  if (displayName) match.name = displayName;
+
+          \    //  if (authApiKey) match.authApiKey = authApiKey;
+
+          \    //  if (authDomain) match.authDomain = authDomain;
+
+          \    //  context.setVariable(\"response.content\",
           JSON.stringify(match));
 
-          \    } else {
+          \    //} else {
 
-          \      context.setVariable(\"response.status.code\", 404);
+          \    //  context.setVariable(\"response.status.code\", 404);
+
+          \    //}
+
+          \  "
+  - name: JS-MCP
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-MCP
+        displayName: JS-MCP
+        properties: {}
+        source: "
+
+          \    var id = request.content.asJSON.id;
+
+          \    if (request.content.asJSON.method == \"initialize\") {
+
+          \      response.content = JSON.stringify({
+
+          \        jsonrpc: \"2.0\",
+
+          \        id: id,
+
+          \        result: initialize(request.content.asJSON)
+
+          \      });
+
+          \    } else if (request.content.asJSON.method == \"tools/list\") {
+
+          \      response.content = JSON.stringify({
+
+          \        jsonrpc: \"2.0\",
+
+          \        id: id,
+
+          \        result: toolsList(request.content.asJSON)
+
+          \      });
+
+          \    } else if (request.content.asJSON.method == \"tools/call\") {
+
+          \      response.content = JSON.stringify({
+
+          \        jsonrpc: \"2.0\",
+
+          \        id: id,
+
+          \        result: callTool(request.content.asJSON.params.name,
+          request.content.asJSON.params.arguments)
+
+          \      });
 
           \    }
 
+
           \  "
-        includeUrl: jsc://config.js
+        includeUrl: jsc://mcp.js
   - name: JS-SetAnalyticsResponse
     type: Javascript
     content:
@@ -216,6 +441,59 @@ policies:
           \"application/json\");
 
           \  "
+  - name: JS-SetApp
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-SetApp
+        displayName: JS-SetApp
+        properties: {}
+        source: "
+
+          var originalApp = response.content.asJSON;
+
+          var updateApp = request.content.asJSON;
+
+
+          print(response.content);
+
+          print(request.content);
+
+
+          if (context.proxyRequest.method == \"PUT\") {
+
+          \  print(\"Now doing update...\");
+
+          \  var changes = checkAppCredentials(updateApp, originalApp);
+
+          \  print(JSON.stringify(changes));
+
+          \  if (changes[0]) {
+
+          \    context.setVariable(\"appOperation\", changes[0].operationName);
+
+          \    context.setVariable(\"appApiProduct\", changes[0].apiProduct);
+
+          \    context.setVariable(\"appClientId\", changes[0].clientId);
+
+          \    context.setVariable(\"appUpdatedCredential\",
+          JSON.stringify({\"apiProducts\": changes[0].apiProducts}));
+
+          \  }
+
+          } else {
+
+          \  context.setVariable(\"appPayload\",
+          JSON.stringify(transformAppToApigee(request.content.asJSON)));
+
+          }
+
+          \  "
+        includeUrl: jsc://transformations.js
   - name: JS-SetTimeRange
     type: Javascript
     content:
@@ -235,10 +513,55 @@ policies:
 
 
           \    var email =
-          context.getVariable(\"jwt.JWT-VerifyToken.claim.email\");
+          context.getVariable(\"jwt.JWT-AccessToken.claim.email\");
 
           \  "
         includeUrl: jsc://transformations.js
+  - name: JS-SetWellKnown
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-SetWellKnown
+        displayName: JS-SetWellKnown
+        properties: {}
+        source: "
+
+          \    response.content = JSON.stringify({
+
+          \  \"resource\": \"https://8.232.129.124.nip.io/api/portals/mcp\",\
+
+          \  \"authorization_servers\": [
+
+          \    \"https://8.232.129.124.nip.io\"
+
+          \  ],
+
+          \  \"scopes_supported\": [
+
+          \    \"openid\",
+
+          \    \"profile\",
+
+          \    \"email\",
+
+          \    \"mcp\"
+
+          \  ],
+
+          \  \"bearer_methods_supported\": [
+
+          \    \"header\"
+
+          \  ]
+
+          });
+
+          \  "
+        includeUrl: jsc://mcp.js
   - name: JS-TransformApps
     type: Javascript
     content:
@@ -252,9 +575,19 @@ policies:
         properties: {}
         source: "
 
+          \    print(response.content);
+
           \    var responseObject = response.content.asJSON;
 
-          \    var result = transformApps(responseObject);
+          \    var result;
+
+          \    if (!responseObject.app)
+
+          \      result = transformApp(responseObject);
+
+          \    else
+
+          \      result = transformApps(responseObject);
 
           \    if (result)
 
@@ -281,7 +614,15 @@ policies:
 
           \    var responseObject = response.content.asJSON;
 
-          \    var result = transformApisToProducts(responseObject);
+          \    var productResponse =
+          context.getVariable(\"productResponse.content\");
+
+          \    print(productResponse);
+
+          \    var productResponseObject = JSON.parse(productResponse);
+
+          \    var result = transformApisToProducts(responseObject,
+          productResponseObject);
 
           \    if (result)
 
@@ -293,34 +634,59 @@ policies:
 
           \  "
         includeUrl: jsc://transformations.js
-  - name: JWT-VerifyToken
+  - name: JWT-AccessToken
     type: VerifyJWT
     content:
       verifyJwt:
         metadata:
           continueOnError: "false"
           enabled: "true"
-          name: JWT-VerifyToken
-        displayName: JWT-VerifyToken
+          name: JWT-AccessToken
+        displayName: JWT-AccessToken
         algorithm: RS256
-        ignoreUnresolvedVariables: "false"
+        source: extracted_access_token
         publicKey:
-          jwks:
+          setValue:
             metadata:
-              uri: https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com
-        issuer:
-          metadata:
-            ref: jwt.issuer
-        audience:
-          metadata:
-            ref: organization.name
+              ref: public.key
+        issuer: https://8.232.129.124.nip.io
+  - name: KVM-LoadConfig
+    type: KeyValueMapOperations
+    content:
+      keyValueMapOperations:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: KVM-LoadConfig
+          mapIdentifier: AI-Portals
+        displayName: KVM-LoadConfig
+        properties: {}
+        exclusiveCache: "false"
+        expiryTimeInSecs: "300"
+        get:
+          - metadata:
+              assignTo: portalAuthApiKey
+              index: "1"
+            key:
+              parameter: portal-auth-apikey
+          - metadata:
+              assignTo: portalAuthDomain
+              index: "1"
+            key:
+              parameter: portal-auth-domain
+          - metadata:
+              assignTo: portalTitle
+              index: "1"
+            key:
+              parameter: portal-title
+        scope: environment
   - name: RC-ResponseCache
     type: ResponseCache
     content:
       responseCache:
         metadata:
           continueOnError: "false"
-          enabled: "true"
+          enabled: "false"
           name: RC-ResponseCache
         displayName: RC-ResponseCache
         cacheKey:
@@ -339,6 +705,61 @@ policies:
             value: "3600"
         skipCacheLookup: {}
         skipCachePopulation: {}
+  - name: SC-AddAppProduct
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: SC-AddAppProduct
+        displayName: SC-AddAppProduct
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+          set:
+            verb: PUT
+            payload:
+              metadata:
+                contentType: application/json
+              value: "{appUpdatedCredential}"
+        response: response
+        httpTargetConnection:
+          properties: {}
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/developers/{userEmail}/apps/{appName}/keys/{appClientId}
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
+  - name: SC-CreateApp
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: SC-CreateApp
+        displayName: SC-CreateApp
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+          set:
+            verb: POST
+            payload: "{appPayload}"
+        response: response
+        httpTargetConnection:
+          properties: {}
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/developers/{userEmail}/apps
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
   - name: SC-CreateUser
     type: ServiceCallout
     content:
@@ -411,7 +832,7 @@ policies:
         response: analyticsAppResponse
         httpTargetConnection:
           properties: {}
-          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/environments/{environment.name}/stats/developer_app?select=sum(message_count),sum(dc_ai_prompt_token_count),sum(dc_ai_response_token_count),avg(dc_ai_time_first_token)&timeUnit=day&timeRange={apigee.timeRange}&filter=%28developer_email%20eq%20%27{jwt.JWT-VerifyToken.claim.email}%27%29
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/environments/{environment.name}/stats/developer_app?select=sum(message_count),sum(dc_ai_prompt_token_count),sum(dc_ai_response_token_count),avg(dc_ai_time_first_token)&timeUnit=day&timeRange={apigee.timeRange}&filter=%28developer_email%20eq%20%27{jwt.JWT-AccessToken.claim.email}%27%29
           authentication:
             googleAccessToken:
               scopes:
@@ -434,7 +855,7 @@ policies:
         response: analyticsModelResponse
         httpTargetConnection:
           properties: {}
-          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/environments/{environment.name}/stats/dc_ai_model?select=sum(dc_ai_prompt_token_count),sum(dc_ai_response_token_count),avg(dc_ai_time_first_token),avg(dc_ai_time_first_token)&timeUnit=day&timeRange={apigee.timeRange}&filter=%28developer_email%20eq%20%27{jwt.JWT-VerifyToken.claim.email}%27%29
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/environments/{environment.name}/stats/dc_ai_model?select=sum(dc_ai_prompt_token_count),sum(dc_ai_response_token_count),avg(dc_ai_time_first_token),avg(dc_ai_time_first_token)&timeUnit=day&timeRange={apigee.timeRange}&filter=%28developer_email%20eq%20%27{jwt.JWT-AccessToken.claim.email}%27%29
           authentication:
             googleAccessToken:
               scopes:
@@ -457,7 +878,30 @@ policies:
         response: analyticsProductResponse
         httpTargetConnection:
           properties: {}
-          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/environments/{environment.name}/stats/api_product?select=sum(message_count),sum(dc_ai_prompt_token_count),sum(dc_ai_response_token_count),avg(dc_ai_time_first_token)&timeUnit=day&timeRange={apigee.timeRange}&filter=%28developer_email%20eq%20%27{jwt.JWT-VerifyToken.claim.email}%27%29
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/environments/{environment.name}/stats/api_product?select=sum(message_count),sum(dc_ai_prompt_token_count),sum(dc_ai_response_token_count),avg(dc_ai_time_first_token)&timeUnit=day&timeRange={apigee.timeRange}&filter=%28developer_email%20eq%20%27{jwt.JWT-AccessToken.claim.email}%27%29
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
+  - name: SC-GetApp
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: SC-GetApp
+        displayName: SC-GetApp
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+        response: response
+        httpTargetConnection:
+          properties: {}
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/developers/{jwt.JWT-AccessToken.claim.email}/apps/{appName}
           authentication:
             googleAccessToken:
               scopes:
@@ -480,61 +924,344 @@ policies:
         response: response
         httpTargetConnection:
           properties: {}
-          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/developers/{jwt.JWT-VerifyToken.claim.email}/apps?expand=true
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/developers/{jwt.JWT-AccessToken.claim.email}/apps?expand=true
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
+  - name: SC-GetProducts
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: SC-GetProducts
+        displayName: SC-GetProducts
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+        response: productResponse
+        httpTargetConnection:
+          properties: {}
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/apiproducts?expand=true
+  - name: SC-RemoveAppProduct
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: SC-RemoveAppProduct
+        displayName: SC-RemoveAppProduct
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: myRequest
+          ignoreUnresolvedVariables: "false"
+          set:
+            verb: DELETE
+        response: calloutResponse
+        httpTargetConnection:
+          properties: {}
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/developers/{userEmail}/apps/{appName}/keys/{appClientId}/apiproducts/{appApiProduct}
           authentication:
             googleAccessToken:
               scopes:
                 scope: https://www.googleapis.com/auth/cloud-platform
 resources:
-  - name: config.js
+  - name: mcp.js
     type: jsc
     content: |
-      var portalsConfig = [
+      /**
+       * Model Context Protocol (MCP) ES5 Library
+       * Provides handlers for various MCP standard requests.
+       */
+
+      var mockCatalog = [
         {
-          "id": "demo",
-          "name": "Apigee AI Portal",
-          "authType": "identity-platform",
-          "authApiKey": "",
-          "authDomain": "",
-          "productGroups": [
-            {
-              "productGroupId": "core-products",
-              "allUsers": true,
-              "selectedAudiences": []
-            }
-          ]
+          name: "Qwen admin_ Product",
+          displayName: "Qwen admin_ Product",
+          description: "Access to Qwen family models including qwen3-next-80b-a3b-thinking-maas for advanced multilingual generation.",
+          approvalType: "auto"
+        },
+        {
+          name: "DeepSeek admin_ Product",
+          displayName: "DeepSeek admin_ Product",
+          description: "Provides low-latency access to DeepSeek models (e.g. deepseek-v3.2-maas).",
+          approvalType: "auto"
+        },
+        {
+          name: "Claude admin_ Product",
+          displayName: "Claude admin_ Product",
+          description: "Claude developer access product supporting advanced Claude models.",
+          approvalType: "auto"
+        },
+        {
+          name: "Gemini Core Product",
+          displayName: "Gemini Core Product",
+          description: "Developer access to Gemini models including multimodal capabilities.",
+          approvalType: "auto"
         }
       ];
+
+      function initialize(request) {
+        return {
+          protocolVersion: "2024-11-05",
+          capabilities: {
+            tools: {},
+          },
+          serverInfo: {
+            name: "portals-mcp-server",
+            version: "1.0.0",
+          },
+        };
+      }
+
+      function toolsList() {
+        return {
+          tools: [
+            {
+              name: "getCatalog",
+              description: "Retrieves the list of available API products in the catalog.",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  limit: {
+                    type: "integer",
+                    description: "Optional limit on the number of products returned."
+                  }
+                }
+              }
+            },
+            {
+              name: "searchCatalog",
+              description: "Searches the catalog of API products for matches against the search query.",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  query: {
+                    type: "string",
+                    description: "The search term or keyword to match against product name or description."
+                  }
+                },
+                required: ["query"]
+              }
+            },
+            {
+              name: "subscribe",
+              description: "Subscribes a developer's application to a specific API product.",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  developerEmail: {
+                    type: "string",
+                    description: "The email of the developer owning the app."
+                  },
+                  appName: {
+                    type: "string",
+                    description: "The name of the developer application."
+                  },
+                  apiProduct: {
+                    type: "string",
+                    description: "The name of the API product to subscribe to."
+                  }
+                },
+                required: ["developerEmail", "appName", "apiProduct"]
+              }
+            },
+            {
+              name: "unsubscribe",
+              description: "Unsubscribes a developer's application from a specific API product.",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  developerEmail: {
+                    type: "string",
+                    description: "The email of the developer owning the app."
+                  },
+                  appName: {
+                    type: "string",
+                    description: "The name of the developer application."
+                  },
+                  apiProduct: {
+                    type: "string",
+                    description: "The name of the API product to unsubscribe from."
+                  }
+                },
+                required: ["developerEmail", "appName", "apiProduct"]
+              }
+            }
+          ],
+        };
+      }
+
+      /**
+       * Executes a specific tool by name.
+       */
+      function callTool(name, args) {
+        if (name === "getCatalog") {
+          var limit = args && args.limit ? parseInt(args.limit, 10) : undefined;
+          var products = mockCatalog;
+          if (limit && limit > 0) {
+            products = mockCatalog.slice(0, limit);
+          }
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(products),
+              },
+            ],
+          };
+        }
+
+        if (name === "searchCatalog") {
+          if (!args || typeof args.query !== "string") {
+            return {
+              isError: true,
+              content: [
+                {
+                  type: "text",
+                  text: "Error: The 'query' argument is required.",
+                },
+              ],
+            };
+          }
+          var query = args.query.toLowerCase();
+          var results = [];
+          for (var i = 0; i < mockCatalog.length; i++) {
+            var prod = mockCatalog[i];
+            if (
+              prod.name.toLowerCase().indexOf(query) !== -1 ||
+              prod.displayName.toLowerCase().indexOf(query) !== -1 ||
+              (prod.description && prod.description.toLowerCase().indexOf(query) !== -1)
+            ) {
+              results.push(prod);
+            }
+          }
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(results),
+              },
+            ],
+          };
+        }
+
+        if (name === "subscribe") {
+          if (!args || !args.developerEmail || !args.appName || !args.apiProduct) {
+            return {
+              isError: true,
+              content: [
+                {
+                  type: "text",
+                  text: "Error: 'developerEmail', 'appName', and 'apiProduct' are all required.",
+                },
+              ],
+            };
+          }
+          var response = {
+            success: true,
+            message: "Successfully subscribed application '" + args.appName + "' of '" + args.developerEmail + "' to API product '" + args.apiProduct + "'.",
+            subscription: {
+              appName: args.appName,
+              developerEmail: args.developerEmail,
+              apiProduct: args.apiProduct,
+              status: "approved",
+              createdAt: new Date().toISOString(),
+            },
+          };
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(response),
+              },
+            ],
+          };
+        }
+
+        if (name === "unsubscribe") {
+          if (!args || !args.developerEmail || !args.appName || !args.apiProduct) {
+            return {
+              isError: true,
+              content: [
+                {
+                  type: "text",
+                  text: "Error: 'developerEmail', 'appName', and 'apiProduct' are all required.",
+                },
+              ],
+            };
+          }
+          var response = {
+            success: true,
+            message: "Successfully unsubscribed application '" + args.appName + "' of '" + args.developerEmail + "' from API product '" + args.apiProduct + "'.",
+            unsubscribed: {
+              appName: args.appName,
+              developerEmail: args.developerEmail,
+              apiProduct: args.apiProduct,
+              status: "removed",
+              unsubscribedAt: new Date().toISOString(),
+            },
+          };
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(response),
+              },
+            ],
+          };
+        }
+
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "Error: Tool '" + name + "' not found.",
+            },
+          ],
+        };
+      }
   - name: transformations.js
     type: jsc
-    content: |-
+    content: |+
       function transformApisToProducts(input, apigeeProducts) {
         if (!input || !Array.isArray(input.apis)) {
           return { products: [] };
         }
 
-        var products = input.apis.map(function(api) {
+        var products = input.apis.map(function (api) {
           // 1. Map ID from name (extract the last part of the path)
-          var id = api.name ? api.name.split('/').pop() : '';
+          var id = api.name ? api.name.split("/").pop() : "";
 
           // 2. Extract displayName
-          var displayName = api.displayName || '';
+          var displayName = api.displayName || "";
 
           // 3. Extract versions
           var versions = api.versions || [];
 
           // 4. Extract createTime
-          var createTime = api.createTime || '';
+          var createTime = api.createTime || "";
 
           // 5. Extract updateTime
-          var updateTime = api.updateTime || '';
+          var updateTime = api.updateTime || "";
 
           // 6. Extract targetUser (just the displayName value)
           var targetUser = null;
-          if (api.targetUser &&
-              api.targetUser.enumValues &&
-              api.targetUser.enumValues.values &&
-              api.targetUser.enumValues.values[0]) {
+          if (
+            api.targetUser &&
+            api.targetUser.enumValues &&
+            api.targetUser.enumValues.values &&
+            api.targetUser.enumValues.values[0]
+          ) {
             targetUser = api.targetUser.enumValues.values[0].displayName || null;
           }
 
@@ -547,12 +1274,14 @@ resources:
             for (var i = 0; i < keys.length; i++) {
               var key = keys[i];
               var attr = api.attributes[key];
-              if (key.slice(-9) === '/category') {
+              if (key.slice(-9) === "/category") {
                 var vals = (attr && attr.enumValues && attr.enumValues.values) || [];
-                categories = vals.map(function(v) {
-                  return v.displayName;
-                }).filter(Boolean);
-              } else if (key.slice(-5) === '/tags') {
+                categories = vals
+                  .map(function (v) {
+                    return v.displayName;
+                  })
+                  .filter(Boolean);
+              } else if (key.slice(-5) === "/tags") {
                 tags = (attr && attr.stringValues && attr.stringValues.values) || [];
               }
             }
@@ -589,6 +1318,17 @@ resources:
               }
             }
 
+            // Check operationConfigs in payloadOperationGroup
+            if (prod.payloadOperationGroup && Array.isArray(prod.payloadOperationGroup.operationConfigs)) {
+              var payloadConfigs = prod.payloadOperationGroup.operationConfigs;
+              for (var l = 0; l < payloadConfigs.length; l++) {
+                if (payloadConfigs[l] && payloadConfigs[l].apiSource === displayName) {
+                  isMatched = true;
+                  matchingConfigs.push(payloadConfigs[l]);
+                }
+              }
+            }
+
             if (isMatched) {
               var tokenLimits = [];
               var callLimits = [];
@@ -600,32 +1340,32 @@ resources:
                 if (config.quota && typeof config.quota === 'object' && config.quota.limit) {
                   callLimits.push({
                     callLimit: Number(config.quota.limit) || 0,
-                    type: 'USER'
+                    type: "USER"
                   });
                 }
 
                 // Map 'llmTokenQuota' if it exists and has a limit
                 if (config.llmTokenQuota && typeof config.llmTokenQuota === 'object' && config.llmTokenQuota.limit) {
-                  var modelName = '';
+                  var modelName = "";
                   if (Array.isArray(config.llmOperations) && config.llmOperations.length > 0 && config.llmOperations[0]) {
-                    modelName = config.llmOperations[0].model || '';
+                    modelName = config.llmOperations[0].model || "";
                   }
                   tokenLimits.push({
                     modelName: modelName,
                     tokenLimit: Number(config.llmTokenQuota.limit) || 0,
-                    type: 'USER'
+                    type: "USER"
                   });
                 }
               }
 
               // Support root-level quota mapping if we have matching config but no config-level quota/tokenLimit was added
               if (tokenLimits.length === 0 && prod.llmQuota) {
-                var rootModelName = '';
+                var rootModelName = "";
                 if (prod.llmOperationGroup && Array.isArray(prod.llmOperationGroup.operationConfigs)) {
                   var rConfigs = prod.llmOperationGroup.operationConfigs;
                   for (var rc = 0; rc < rConfigs.length; rc++) {
                     if (rConfigs[rc] && Array.isArray(rConfigs[rc].llmOperations) && rConfigs[rc].llmOperations.length > 0 && rConfigs[rc].llmOperations[0]) {
-                      rootModelName = rConfigs[rc].llmOperations[0].model || '';
+                      rootModelName = rConfigs[rc].llmOperations[0].model || "";
                       break;
                     }
                   }
@@ -633,24 +1373,24 @@ resources:
                 tokenLimits.push({
                   modelName: rootModelName,
                   tokenLimit: Number(prod.llmQuota) || 0,
-                  type: 'USER'
+                  type: "USER"
                 });
               }
 
               if (callLimits.length === 0 && prod.quota && typeof prod.quota === 'object' && prod.quota.limit) {
                 callLimits.push({
                   callLimit: Number(prod.quota.limit) || 0,
-                  type: 'USER'
+                  type: "USER"
                 });
               } else if (callLimits.length === 0 && prod.quota && (typeof prod.quota === 'string' || typeof prod.quota === 'number')) {
                 callLimits.push({
                   callLimit: Number(prod.quota) || 0,
-                  type: 'USER'
+                  type: "USER"
                 });
               }
 
               packages.push({
-                packageId: prod.name || '',
+                packageId: prod.name || "",
                 requestTokenPricePerMillion: 0.0,
                 responseTokenPricePerMillion: 0.0,
                 requestCallPricePerThousand: 0.0,
@@ -670,9 +1410,9 @@ resources:
             targetUser: targetUser,
             categories: categories,
             tags: tags,
-            packages: packages
+            packages: packages,
           };
-        }).filter(function(p) {
+        }).filter(function (p) {
           return p.packages && p.packages.length > 0;
         });
 
@@ -685,18 +1425,18 @@ resources:
         }
 
         // 1. Map ID from appId
-        var id = app.appId || '';
+        var id = app.appId || "";
 
         // 2. Map name from name
-        var name = app.name || '';
+        var name = app.name || "";
 
         // 3. Extract description from attributes (find attribute with name "description")
-        var description = '';
+        var description = "";
         if (app.attributes && Array.isArray(app.attributes)) {
           for (var i = 0; i < app.attributes.length; i++) {
             var attr = app.attributes[i];
-            if (attr && attr.name === 'description') {
-              description = attr.value || '';
+            if (attr && attr.name === "description") {
+              description = attr.value || "";
               break;
             }
           }
@@ -705,21 +1445,23 @@ resources:
         // 4. Map credentials
         var credentials = [];
         if (app.credentials && Array.isArray(app.credentials)) {
-          credentials = app.credentials.map(function(cred) {
-            var clientId = cred.consumerKey || '';
-            var clientSecret = cred.consumerSecret || '';
+          credentials = app.credentials.map(function (cred) {
+            var clientId = cred.consumerKey || "";
+            var clientSecret = cred.consumerSecret || "";
 
             var products = [];
             if (cred.apiProducts && Array.isArray(cred.apiProducts)) {
-              products = cred.apiProducts.map(function(prod) {
-                return prod.apiproduct || '';
-              }).filter(Boolean);
+              products = cred.apiProducts
+                .map(function (prod) {
+                  return prod.apiproduct || "";
+                })
+                .filter(Boolean);
             }
 
             return {
               clientId: clientId,
               clientSecret: clientSecret,
-              products: products
+              products: products,
             };
           });
         }
@@ -728,7 +1470,7 @@ resources:
           credentials: credentials,
           description: description,
           id: id,
-          name: name
+          name: name,
         };
       }
 
@@ -737,7 +1479,7 @@ resources:
           return { apps: [] };
         }
 
-        var apps = input.app.map(function(app) {
+        var apps = input.app.map(function (app) {
           return transformApp(app);
         }).filter(Boolean);
 
@@ -786,34 +1528,34 @@ resources:
       }
 
       function getApigeeTimeRange() {
-          var now = new Date();
+        var now = new Date();
 
-          // Create a date object set to exactly 3 months ago
-          var threeMonthsAgo = new Date();
-          threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+        // Create a date object set to exactly 3 months ago
+        var threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-          // Helper function to pad single digits with a leading zero (ES5 alternative to padStart)
-          function pad(num) {
-              return (num < 10 ? '0' : '') + num;
-          }
+        // Helper function to pad single digits with a leading zero (ES5 alternative to padStart)
+        function pad(num) {
+          return (num < 10 ? "0" : "") + num;
+        }
 
-          // Helper function to format the date to MM/DD/YYYY HH:mm
-          function formatDate(date) {
-              var month = pad(date.getMonth() + 1); // Months are 0-indexed
-              var day = pad(date.getDate());
-              var year = date.getFullYear();
-              var hours = pad(date.getHours());
-              var minutes = pad(date.getMinutes());
+        // Helper function to format the date to MM/DD/YYYY HH:mm
+        function formatDate(date) {
+          var month = pad(date.getMonth() + 1); // Months are 0-indexed
+          var day = pad(date.getDate());
+          var year = date.getFullYear();
+          var hours = pad(date.getHours());
+          var minutes = pad(date.getMinutes());
 
-              return month + '/' + day + '/' + year + ' ' + hours + ':' + minutes;
-          }
+          return month + "/" + day + "/" + year + " " + hours + ":" + minutes;
+        }
 
-          // Combine both dates with the tilde separator
-          var rawRange = formatDate(threeMonthsAgo) + '~' + formatDate(now);
+        // Combine both dates with the tilde separator
+        var rawRange = formatDate(threeMonthsAgo) + "~" + formatDate(now);
 
-          // URL-encode the string. encodeURIComponent leaves '~' unescaped naturally,
-          // matching your Apigee URL format perfectly.
-          return encodeURIComponent(rawRange);
+        // URL-encode the string. encodeURIComponent leaves '~' unescaped naturally,
+        // matching your Apigee URL format perfectly.
+        return encodeURIComponent(rawRange);
       }
 
       function checkAppCredentials(inputApp, originalApp) {
@@ -892,10 +1634,6 @@ resources:
 
         return changes;
       }
-  - name: portals.properties
-    type: properties
-    content: |
-      DISPLAY_NAME={DISPLAY_NAME}
-      AUTH_API_KEY={AUTH_API_KEY}
-      AUTH_DOMAIN={AUTH_DOMAIN}
+
+
 tests: []

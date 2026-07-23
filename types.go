@@ -86,6 +86,8 @@ type Portal struct {
 	AuthType      string               `json:"authType" yaml:"authType"`
 	AuthApiKey    *string              `json:"authApiKey" yaml:"authApiKey"`
 	AuthDomain    *string              `json:"authDomain" yaml:"authDomain"`
+	OidcEndpoint  *string              `json:"oidcEndpoint,omitempty" yaml:"oidcEndpoint,omitempty"`
+	ClientId      *string              `json:"clientId,omitempty" yaml:"clientId,omitempty"`
 	ProductGroups []ProductGroupConfig `json:"productGroups" yaml:"productGroups"`
 }
 

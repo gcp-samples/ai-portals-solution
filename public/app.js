@@ -6,6 +6,8 @@ const CONFIG = {
   demoMode: true,
   portalId: "demo",
   apiHost: "",
+  oidcEndpoint: "",
+  clientId: "",
   portalConfig: null,
 };
 
@@ -16,7 +18,6 @@ class AppPortal {
   constructor() {
     this.user = null;
     this.currentView = "";
-    this.firebaseInitialized = false;
     this.products = [];
     this.apps = [];
     this.initialLoad = false;
@@ -46,6 +47,12 @@ class AppPortal {
     // Load config based on mode
     await this.loadPortalConfig();
 
+    // Handle OIDC authorization callback if query params are present
+    if (!CONFIG.demoMode) {
+      await this.discoverOidcEndpoint();
+      await this.handleOidcCallback();
+    }
+
     // Process initial route
     this.handleRoute();
     window.addEventListener("hashchange", () => this.handleRoute());
@@ -67,11 +74,16 @@ class AppPortal {
     const savedTheme = localStorage.getItem("portal_theme");
     this.theme = savedTheme || "dark";
 
-    // Load cached demo user if in demoMode
+    // Load cached user based on mode
     if (CONFIG.demoMode) {
       const demoUser = localStorage.getItem("portal_demo_user");
       if (demoUser) {
         this.setUser(JSON.parse(demoUser));
+      }
+    } else {
+      const liveUser = localStorage.getItem("portal_live_user");
+      if (liveUser) {
+        this.setUser(JSON.parse(liveUser));
       }
     }
 
@@ -229,6 +241,8 @@ class AppPortal {
       }
 
       CONFIG.portalConfig = config;
+      if (config.oidcEndpoint) CONFIG.oidcEndpoint = config.oidcEndpoint;
+      if (config.clientId) CONFIG.clientId = config.clientId;
 
       // Update UI title
       const title = config.name || "Apigee AI Portal";
@@ -239,7 +253,8 @@ class AppPortal {
       this.updateAuthHeaderUI();
 
       if (!CONFIG.demoMode) {
-        await this.initFirebase();
+        await this.discoverOidcEndpoint();
+        await this.getOrRegisterClientId();
       }
     } catch (err) {
       console.error("Failed to load portal configuration:", err);
@@ -247,75 +262,246 @@ class AppPortal {
     }
   }
 
-  // Initialize Firebase Authentication
-  initFirebase() {
-    if (this.firebaseInitialized) return Promise.resolve();
-    if (!CONFIG.portalConfig || !CONFIG.portalConfig.authApiKey) {
-      console.warn("Firebase configuration not yet available.");
-      return Promise.resolve();
+  // Discovers OIDC endpoint dynamically from protected resource metadata (RFC 9396)
+  async discoverOidcEndpoint() {
+    if (CONFIG.oidcEndpoint) {
+      return;
     }
 
-    return new Promise((resolve) => {
-      try {
-        firebase.initializeApp({
-          apiKey: CONFIG.portalConfig.authApiKey,
-          authDomain: CONFIG.portalConfig.authDomain,
-        });
-
-        this.firebaseInitialized = true;
-        console.log("Firebase initialized successfully with portal settings.");
-
-        let resolved = false;
-
-        // Listen to auth changes
-        firebase.auth().onAuthStateChanged(async (firebaseUser) => {
-          if (firebaseUser) {
-            try {
-              const idToken = await firebaseUser.getIdToken();
-              let firstName = "";
-              let lastName = "";
-              if (this.registrationData) {
-                firstName = this.registrationData.firstName;
-                lastName = this.registrationData.lastName;
-                this.registrationData = null; // Clear to avoid reuse
-              } else if (firebaseUser.displayName) {
-                const nameParts = firebaseUser.displayName.split(" ");
-                firstName = nameParts[0] || "";
-                lastName = nameParts.slice(1).join(" ") || "";
-              }
-
-              await this.liveLogin(firebaseUser.email, idToken, firstName, lastName);
-
-              this.setUser({
-                email: firebaseUser.email,
-                displayName:
-                  firebaseUser.displayName ||
-                  `${firstName} ${lastName}`.trim() ||
-                  firebaseUser.email.split("@")[0],
-                photoURL:
-                  firebaseUser.photoURL ||
-                  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
-                token: idToken,
-              });
-            } catch (err) {
-              console.error("Firebase post-login sync failed", err);
-              this.showToast("Authentication sync with gateway failed.", "error");
-              firebase.auth().signOut();
-            }
-          } else {
-            this.setUser(null);
-          }
-
-          if (!resolved) {
-            resolved = true;
-            resolve();
-          }
-        });
-      } catch (err) {
-        console.error("Failed to initialize Firebase Auth:", err);
-        resolve();
+    const apiHost = CONFIG.apiHost || window.location.origin;
+    console.log("Discovering OIDC endpoints from oauth-protected-resource metadata...");
+    try {
+      const response = await fetch(`${apiHost}/.well-known/oauth-protected-resource`);
+      if (response.ok) {
+        const metadata = await response.json();
+        if (metadata && metadata.authorization_servers && metadata.authorization_servers.length > 0) {
+          CONFIG.oidcEndpoint = metadata.authorization_servers[0];
+          console.log("Dynamically discovered OIDC Authorization Server:", CONFIG.oidcEndpoint);
+          return;
+        }
       }
-    });
+    } catch (e) {
+      console.log("No oauth-protected-resource metadata found, falling back to apiHost derivation.", e);
+    }
+
+    // Default fallback
+    CONFIG.oidcEndpoint = CONFIG.apiHost || window.location.origin;
+    console.log("Using fallback OIDC endpoint:", CONFIG.oidcEndpoint);
+  }
+
+  // Handle OIDC authorization callback if redirected with code
+  async handleOidcCallback() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+    const state = urlParams.get("state");
+
+    if (!code) return;
+
+    console.log("Detected OIDC authorization code in redirect URL, initiating exchange...");
+    this.showToast("Exchanging secure authorization code...", "info");
+
+    const savedState = sessionStorage.getItem("oidc_state");
+    if (savedState && state !== savedState) {
+      console.error("OIDC state validation mismatch! Expected:", savedState, "Got:", state);
+      this.showToast("Authentication security check failed: state mismatch.", "error");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
+    const codeVerifier = sessionStorage.getItem("oidc_code_verifier");
+    if (!codeVerifier) {
+      console.error("Missing original OIDC code verifier in session storage.");
+      this.showToast("Authentication failed: Missing original session code verifier.", "error");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
+    try {
+      const clientId = await this.getOrRegisterClientId();
+      if (!clientId) {
+        throw new Error("OIDC Client ID is not registered or available.");
+      }
+
+      const redirectUri = window.location.origin + window.location.pathname;
+      const params = new URLSearchParams();
+      params.append("grant_type", "authorization_code");
+      params.append("client_id", clientId);
+      params.append("redirect_uri", redirectUri);
+      params.append("code", code);
+      params.append("code_verifier", codeVerifier);
+
+      const response = await fetch(`${CONFIG.oidcEndpoint}/token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error(errBody.error_description || errBody.error || "Token exchange failed");
+      }
+
+      const data = await response.json();
+      const idToken = data.id_token;
+      if (!idToken) {
+        throw new Error("No openid ID token was returned by the token endpoint");
+      }
+
+      const decoded = this.decodeJwt(idToken);
+      if (!decoded) {
+        throw new Error("Failed to decode user profile from received ID token");
+      }
+
+      const email = decoded.email;
+      const displayName = decoded.name || email.split("@")[0];
+
+      // Sync OIDC login with the developer gateway backend
+      await this.liveLogin(email, idToken, displayName, "");
+
+      const userObj = {
+        email: email,
+        displayName: displayName,
+        photoURL: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
+        token: idToken,
+      };
+
+      this.setUser(userObj);
+      localStorage.setItem("portal_live_user", JSON.stringify(userObj));
+      this.showToast("Signed in successfully via secure OIDC!", "success");
+
+    } catch (err) {
+      console.error("OIDC Callback execution failed:", err);
+      this.showToast("OIDC authentication failed: " + err.message, "error");
+    } finally {
+      // Clear transient session storage states and clean query parameters from bar
+      sessionStorage.removeItem("oidc_code_verifier");
+      sessionStorage.removeItem("oidc_state");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
+
+  // Decodes client-side a standard base64url JWT token
+  decodeJwt(token) {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      return JSON.parse(jsonPayload);
+    } catch (e) {
+      console.error("Error decoding JWT token claims:", e);
+      return null;
+    }
+  }
+
+  // Generates cryptographically secure high entropy PKCE verifier
+  generateVerifier() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+    const array = new Uint32Array(44);
+    window.crypto.getRandomValues(array);
+    let verifier = '';
+    for (let i = 0; i < array.length; i++) {
+      verifier += chars[array[i] % chars.length];
+    }
+    return verifier;
+  }
+
+  // Hashes verifier with SHA-256 and base64url-encodes the result
+  async generateChallenge(verifier) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(verifier);
+    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+    const bytes = new Uint8Array(hashBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+  }
+
+  // Resolves configured client id or dynamically registers current redirect URI
+  async getOrRegisterClientId() {
+    if (CONFIG.clientId) {
+      return CONFIG.clientId;
+    }
+    let storedId = localStorage.getItem("portal_client_id");
+    if (storedId) {
+      CONFIG.clientId = storedId;
+      return storedId;
+    }
+    if (!CONFIG.oidcEndpoint) {
+      console.warn("No OIDC endpoint configured for dynamic client registration.");
+      return null;
+    }
+    try {
+      const redirectUri = window.location.origin + window.location.pathname;
+      const response = await fetch(`${CONFIG.oidcEndpoint}/register-client`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          client_name: "Apigee Developer Portal",
+          redirect_uris: [redirectUri],
+        }),
+      });
+      if (!response.ok) {
+        throw new Error("OIDC Dynamic Client Registration request rejected by server.");
+      }
+      const data = await response.json();
+      if (data && data.client_id) {
+        localStorage.setItem("portal_client_id", data.client_id);
+        CONFIG.clientId = data.client_id;
+        console.log("OIDC Client dynamically registered:", data.client_id);
+        return data.client_id;
+      }
+    } catch (e) {
+      console.error("Dynamic client registration failed:", e);
+    }
+    return null;
+  }
+
+  // Initiates OIDC PKCE redirect
+  async loginOidc() {
+    try {
+      this.showToast("Redirecting to secure single sign-on...", "info");
+
+      const clientId = await this.getOrRegisterClientId();
+      if (!clientId) {
+        throw new Error("Could not retrieve or dynamically register OIDC client ID.");
+      }
+
+      const verifier = this.generateVerifier();
+      sessionStorage.setItem("oidc_code_verifier", verifier);
+
+      const challenge = await this.generateChallenge(verifier);
+      const state = Array.from(window.crypto.getRandomValues(new Uint32Array(8)), dec => dec.toString(16)).join('');
+      sessionStorage.setItem("oidc_state", state);
+
+      const redirectUri = window.location.origin + window.location.pathname;
+      const authorizeUrl = `${CONFIG.oidcEndpoint}/authorize` +
+        `?client_id=${encodeURIComponent(clientId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&response_type=code` +
+        `&scope=openid%20profile%20email` +
+        `&code_challenge=${encodeURIComponent(challenge)}` +
+        `&code_challenge_method=S256` +
+        `&state=${encodeURIComponent(state)}`;
+
+      window.location.href = authorizeUrl;
+    } catch (err) {
+      console.error("OIDC redirect generation failed:", err);
+      this.showToast("Failed to initiate OIDC authorization redirection: " + err.message, "error");
+    }
   }
 
   async liveLogin(email, token, firstName = "", lastName = "") {
@@ -343,6 +529,11 @@ class AppPortal {
 
   // Auth Operations
   openAuthModal() {
+    if (!CONFIG.demoMode) {
+      this.loginOidc();
+      return;
+    }
+
     const dialog = document.getElementById("auth-dialog");
     if (dialog) {
       const authForm = document.getElementById("auth-form");
@@ -350,10 +541,30 @@ class AppPortal {
         authForm.reset();
       }
       dialog.showModal();
-      this.setAuthTab("login");
+
+      // Configure dialog visibility based on portal mode (Demo vs Live OIDC)
+      const tabsContainer = document.getElementById("demo-auth-tabs-container");
+      const formContainer = document.getElementById("auth-form");
+      const oidcContainer = document.getElementById("oidc-auth-section");
+      const socialContainer = document.getElementById("social-auth-section");
+      const titleElement = document.getElementById("auth-dialog-title");
+
+      if (CONFIG.demoMode) {
+        if (tabsContainer) tabsContainer.style.display = "block";
+        if (formContainer) formContainer.style.display = "block";
+        if (oidcContainer) oidcContainer.style.display = "none";
+        if (socialContainer) socialContainer.style.display = "block";
+        this.setAuthTab("login");
+      } else {
+        if (tabsContainer) tabsContainer.style.display = "none";
+        if (formContainer) formContainer.style.display = "none";
+        if (oidcContainer) oidcContainer.style.display = "block";
+        if (socialContainer) socialContainer.style.display = "none";
+        if (titleElement) titleElement.textContent = "Secure Sign In";
+      }
 
       const emailInput = document.getElementById("auth-email");
-      if (emailInput) {
+      if (emailInput && CONFIG.demoMode) {
         emailInput.focus();
       }
     }
@@ -403,7 +614,6 @@ class AppPortal {
   async handleAuthSubmit(event) {
     event.preventDefault();
     const email = document.getElementById("auth-email").value.trim();
-    const password = document.getElementById("auth-password").value;
     const isLogin = document.getElementById("tab-login").classList.contains("active");
 
     if (CONFIG.demoMode) {
@@ -426,37 +636,8 @@ class AppPortal {
       return;
     }
 
-    // Production Firebase auth flow
-    try {
-      this.showToast(isLogin ? "Signing in..." : "Registering account...", "info");
-      if (isLogin) {
-        await firebase.auth().signInWithEmailAndPassword(email, password);
-        this.showToast("Successfully signed in!", "success");
-      } else {
-        const firstName = document.getElementById("auth-first-name")
-          ? document.getElementById("auth-first-name").value.trim()
-          : "";
-        const lastName = document.getElementById("auth-last-name")
-          ? document.getElementById("auth-last-name").value.trim()
-          : "";
-        this.registrationData = { firstName, lastName };
-
-        const userCredential = await firebase
-          .auth()
-          .createUserWithEmailAndPassword(email, password);
-        if (userCredential.user) {
-          const displayName = `${firstName} ${lastName}`.trim();
-          await userCredential.user.updateProfile({
-            displayName: displayName,
-          });
-        }
-        this.showToast("Successfully registered developer account!", "success");
-      }
-      this.closeAuthModal();
-    } catch (err) {
-      console.error(err);
-      this.showToast(err.message, "error");
-    }
+    // Direct live submissions to OIDC
+    await this.loginOidc();
   }
 
   async handleGoogleSignIn() {
@@ -464,15 +645,7 @@ class AppPortal {
       this.showToast("Google Auth not available in Demo mode. Use email login instead.", "warning");
       return;
     }
-    try {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      await firebase.auth().signInWithPopup(provider);
-      this.showToast("Successfully authenticated with Google!", "success");
-      this.closeAuthModal();
-    } catch (err) {
-      console.error(err);
-      this.showToast(err.message, "error");
-    }
+    await this.loginOidc();
   }
 
   async handleSAMLSignIn() {
@@ -480,19 +653,7 @@ class AppPortal {
       this.showToast("SAML SSO not available in Demo Mode.", "warning");
       return;
     }
-    // Mock SSO or dynamic provider if configured
-    this.showToast("SAML SSO initializing... Redirecting.", "info");
-    try {
-      // Create a popup or use dynamic SAML Flow
-      const provider = new firebase.auth.SAMLAuthProvider("saml.apigee-sso");
-      await firebase.auth().signInWithPopup(provider);
-    } catch (err) {
-      console.error(err);
-      this.showToast(
-        "SAML provider is not configured on your Firebase console yet. " + err.message,
-        "error",
-      );
-    }
+    await this.loginOidc();
   }
 
   async signOut() {
@@ -502,13 +663,10 @@ class AppPortal {
       this.showToast("Signed out of demo session", "success");
       this.navigate("home");
     } else {
-      try {
-        await firebase.auth().signOut();
-        this.showToast("Signed out successfully", "success");
-        this.navigate("home");
-      } catch (err) {
-        this.showToast("Failed to sign out", "error");
-      }
+      this.setUser(null);
+      localStorage.removeItem("portal_live_user");
+      this.showToast("Signed out successfully", "success");
+      this.navigate("home");
     }
   }
 

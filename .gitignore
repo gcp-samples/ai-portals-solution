@@ -5,3 +5,6 @@ __debug*
 firebase-debug.log
 .firebaserc
 .firebase
+private.pem
+public.pem
+jwks.json

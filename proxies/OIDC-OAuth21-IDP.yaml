@@ -5,10 +5,6 @@ description: Complete Identity Provider, OpenID Connect & OAuth 2.1 BFF Proxy fo
 documentation: ""
 categories: []
 parameters:
-  - name: CLIENT_ID
-    displayName: Client ID
-    description: Allowed client ID for external apps
-    default: my-portal-client
   - name: REDIRECT_URI
     displayName: Redirect URI
     description: Allowed redirect URI for external apps (exact match)
@@ -33,6 +29,8 @@ defaultEndpoint:
       mode: Response
       condition: (proxy.pathsuffix MatchesPath "/jwks.json") and (request.verb = "GET")
       steps:
+        - name: JS-SetSecurityKeyNames
+        - name: KVM-GetSecurityKeys
         - name: AM-JWKS
     - name: GET Register
       mode: Response
@@ -42,9 +40,14 @@ defaultEndpoint:
     - name: POST Register
       mode: Response
       condition: (proxy.pathsuffix MatchesPath "/register") and (request.verb = "POST")
+        and (not (request.content Like "*redirect_uris*"))
       steps:
         - name: JS-ProcessRegister
+        - name: SC-CreateDeveloper
+          condition: register_success = "true"
         - name: KVM-PutUser
+          condition: register_success = "true"
+        - name: KVM-PutUserByEmail
           condition: register_success = "true"
         - name: AM-RegisterSuccess
           condition: register_success = "true"
@@ -52,8 +55,8 @@ defaultEndpoint:
           condition: register_success = "false" or register_error != null
     - name: POST Register Client
       mode: Response
-      condition: (proxy.pathsuffix MatchesPath "/register-client") and (request.verb =
-        "POST")
+      condition: ((proxy.pathsuffix MatchesPath "/register-client") and (request.verb = "POST"))
+        or ((proxy.pathsuffix MatchesPath "/register") and (request.verb = "POST") and (request.content Like "*redirect_uris*"))
       steps:
         - name: JS-ProcessRegisterClient
         - name: KVM-PutClient
@@ -97,6 +100,8 @@ defaultEndpoint:
       mode: Response
       condition: (proxy.pathsuffix MatchesPath "/token") and (request.verb = "POST")
       steps:
+        - name: JS-SetSecurityKeyNames
+        - name: KVM-GetSecurityKeys
         - name: JS-ExtractTokenParams
         - name: LC-LookupCode
           condition: token_grant_type = "authorization_code"
@@ -130,6 +135,8 @@ defaultEndpoint:
       condition: (proxy.pathsuffix MatchesPath "/userinfo") and ((request.verb =
         "GET") or (request.verb = "POST"))
       steps:
+        - name: JS-SetSecurityKeyNames
+        - name: KVM-GetSecurityKeys
         - name: JS-SetupVerification
         - name: JWT-VerifyAccessToken
         - name: AM-UserInfoResponse
@@ -159,19 +166,7 @@ policies:
           payload:
             metadata:
               contentType: application/json
-            value: |
-              {
-                "keys": [
-                  {
-                    "kty": "RSA",
-                    "n": "1VRdVN4ulpvW6Q4PHQH-wEDwIrMTXaETd973mePKuHulEPOi2WnJ-EvByH3kGH3KVZ5IL1z4Z2hdzWwEJUY4RmfQ1-flL-PwO9Y1ewxP9_EuUiEYTqXi3cvnZiq7MOdQ1ymTi66K-fVZqiBRc7vsrFg69HZtSlHNvPU6z9XnrOS3ceCDIdJpSB8i719izs70Ra2FUVGehL0uyUUXy4cEGpGL1hJFVf_M7ri6v4993GTUQ0XeciTLE5C_vNGVwvNsBkwPuV2pguutAKTTkbc9Vw7dp7ALy6ealc-KJeM17D5ykCayvUPUMj5KUuESWSipEc98UHFBzL-gw8GxvPK9aQ",
-                    "e": "AQAB",
-                    "kid": "kid-1",
-                    "use": "sig",
-                    "alg": "RS256"
-                  }
-                ]
-              }
+            value: "{jwks_payload}"
   - name: AM-LoginForm
     type: AssignMessage
     content:
@@ -359,7 +354,7 @@ policies:
                           <p>Sign in to proceed to your application</p>
                       </div>
 
-                      <form action="/oauth/v2/authorize" method="POST" id="loginForm">
+                      <form action="/authorize" method="POST" id="loginForm">
                           <!-- OAuth 2.1 Hidden Params -->
                           <input type="hidden" name="client_id" value="{auth_client_id}">
                           <input type="hidden" name="redirect_uri" value="{auth_redirect_uri}">
@@ -370,8 +365,8 @@ policies:
                           <input type="hidden" name="code_challenge_method" value="{auth_code_challenge_method}">
 
                           <div class="form-group">
-                              <label for="username">Username</label>
-                              <input type="text" id="username" name="username" class="form-input" placeholder="johndoe" required autocomplete="username">
+                              <label for="username">Email Address</label>
+                              <input type="text" id="username" name="username" class="form-input" placeholder="john@example.com" required autocomplete="username">
                           </div>
 
                           <div class="form-group">
@@ -383,7 +378,7 @@ policies:
                       </form>
 
                       <div class="footer-links">
-                          Don't have an account? <a href="/oauth/v2/register">Register here</a>
+                          Don't have an account? <a href="/register?client_id={auth_client_id}&amp;redirect_uri={auth_redirect_uri}&amp;response_type={auth_response_type}&amp;scope={auth_scope}&amp;state={auth_state}&amp;code_challenge={auth_code_challenge}&amp;code_challenge_method={auth_code_challenge_method}">Register here</a>
                       </div>
                   </div>
               </body>
@@ -577,7 +572,7 @@ policies:
 
                       <div class="error-alert">{auth_error_message}</div>
 
-                      <form action="/oauth/v2/authorize" method="POST" id="loginForm">
+                      <form action="/authorize" method="POST" id="loginForm">
                           <!-- OAuth 2.1 Hidden Params -->
                           <input type="hidden" name="client_id" value="{auth_client_id}">
                           <input type="hidden" name="redirect_uri" value="{auth_redirect_uri}">
@@ -588,8 +583,8 @@ policies:
                           <input type="hidden" name="code_challenge_method" value="{auth_code_challenge_method}">
 
                           <div class="form-group">
-                              <label for="username">Username</label>
-                              <input type="text" id="username" name="username" class="form-input" placeholder="johndoe" value="{login_username}" required autocomplete="username">
+                              <label for="username">Email Address</label>
+                              <input type="text" id="username" name="username" class="form-input" placeholder="john@example.com" value="{login_username}" required autocomplete="username">
                           </div>
 
                           <div class="form-group">
@@ -601,7 +596,7 @@ policies:
                       </form>
 
                       <div class="footer-links">
-                          Don't have an account? <a href="/oauth/v2/register">Register here</a>
+                          Don't have an account? <a href="/register?client_id={auth_client_id}&amp;redirect_uri={auth_redirect_uri}&amp;response_type={auth_response_type}&amp;scope={auth_scope}&amp;state={auth_state}&amp;code_challenge={auth_code_challenge}&amp;code_challenge_method={auth_code_challenge_method}">Register here</a>
                       </div>
                   </div>
               </body>
@@ -614,12 +609,16 @@ policies:
           name: AM-RedirectCode
         set:
           statusCode: "302"
+          reasonPhrase: Found
           headers:
             header:
               metadata:
                 name: Location
               value: "{auth_redirect_uri}?code={auth_code}&state={auth_state}"
-          payload: {}
+          payload:
+            metadata:
+              contentType: text/plain
+            value: ""
   - name: AM-RegisterClientFailure
     type: AssignMessage
     content:
@@ -627,9 +626,8 @@ policies:
         metadata:
           name: AM-RegisterClientFailure
         set:
-          status:
-            code: "400"
-            reason: Bad Request
+          statusCode: "400"
+          reasonPhrase: Bad Request
           payload:
             metadata:
               contentType: application/json
@@ -645,9 +643,8 @@ policies:
         metadata:
           name: AM-RegisterClientSuccess
         set:
-          status:
-            code: "201"
-            reason: Created
+          statusCode: "201"
+          reasonPhrase: Created
           payload:
             metadata:
               contentType: application/json
@@ -659,9 +656,8 @@ policies:
         metadata:
           name: AM-RegisterFailure
         set:
-          status:
-            code: "400"
-            reason: Bad Request
+          statusCode: "400"
+          reasonPhrase: Bad Request
           payload:
             metadata:
               contentType: text/html; charset=utf-8
@@ -750,7 +746,7 @@ policies:
                       </div>
                       <h1>Registration Failed</h1>
                       <p>{register_error}</p>
-                      <a href="/oauth/v2/register" class="btn">Try Again</a>
+                      <a href="/register" class="btn">Try Again</a>
                   </div>
               </body>
               </html>
@@ -758,6 +754,7 @@ policies:
     type: AssignMessage
     content:
       assignMessage:
+        ignoreUnresolvedVariables: "true"
         metadata:
           name: AM-RegisterForm
         set:
@@ -951,7 +948,15 @@ policies:
 
                       <div id="errorBox" class="error-alert"></div>
 
-                      <form action="/oauth/v2/register" method="POST" id="registerForm">
+                      <form action="/register" method="POST" id="registerForm">
+                          <!-- Pass OIDC params forward to register POST request -->
+                          <input type="hidden" name="client_id" value="{request.queryparam.client_id}">
+                          <input type="hidden" name="redirect_uri" value="{request.queryparam.redirect_uri}">
+                          <input type="hidden" name="response_type" value="{request.queryparam.response_type}">
+                          <input type="hidden" name="scope" value="{request.queryparam.scope}">
+                          <input type="hidden" name="state" value="{request.queryparam.state}">
+                          <input type="hidden" name="code_challenge" value="{request.queryparam.code_challenge}">
+                          <input type="hidden" name="code_challenge_method" value="{request.queryparam.code_challenge_method}">
                           <div class="form-group">
                               <label for="name">Full Name</label>
                               <input type="text" id="name" name="name" class="form-input" placeholder="John Doe" required autocomplete="name">
@@ -976,7 +981,7 @@ policies:
                       </form>
 
                       <div class="footer-links">
-                          Already have an account? <a href="/oauth/v2/authorize?client_id=my-portal-client&redirect_uri=https://localhost:8080/callback&response_type=code&scope=openid%20profile%20email&code_challenge=xyz&code_challenge_method=S256">Login here</a>
+                          Already have an account? <a href="javascript:history.back()">Login here</a>
                       </div>
                   </div>
               </body>
@@ -985,6 +990,7 @@ policies:
     type: AssignMessage
     content:
       assignMessage:
+        ignoreUnresolvedVariables: "true"
         metadata:
           name: AM-RegisterSuccess
         set:
@@ -1084,7 +1090,23 @@ policies:
                       </div>
                       <h1>Registration Success!</h1>
                       <p>Your user profile has been successfully saved to our secure Apigee KVM Identity Store. You can now use your credentials to log in.</p>
-                      <a href="/oauth/v2/authorize?client_id=my-portal-client&redirect_uri=https://localhost:8080/callback&response_type=code&scope=openid%20profile%20email&code_challenge=xyz&code_challenge_method=S256" class="btn">Proceed to Login</a>
+                      <a id="login-link" href="/authorize" class="btn">Proceed to Login</a>
+                      <script>
+                          const params = new URLSearchParams();
+                          const clientId = "{auth_client_id}";
+                          if (clientId && clientId.indexOf("{") !== 0) {
+                              params.append("client_id", clientId);
+                              params.append("redirect_uri", "{auth_redirect_uri}");
+                              params.append("response_type", "{auth_response_type}");
+                              params.append("scope", "{auth_scope}");
+                              params.append("state", "{auth_state}");
+                              params.append("code_challenge", "{auth_code_challenge}");
+                              params.append("code_challenge_method", "{auth_code_challenge_method}");
+                              document.getElementById("login-link").href = "/authorize?" + params.toString();
+                          } else {
+                              document.getElementById("login-link").href = "/";
+                          }
+                      </script>
                   </div>
               </body>
               </html>
@@ -1153,7 +1175,7 @@ policies:
               {
 
               \  \"resource\":
-              \"https://8.232.129.124.nip.io/api/portals/mcp\",\ 
+              \"https://8.232.129.124.nip.io/api/portals/mcp\",\
 
               \  \"authorization_servers\": [
 
@@ -1192,12 +1214,12 @@ policies:
     type: AssignMessage
     content:
       assignMessage:
+        ignoreUnresolvedVariables: "true"
         metadata:
           name: AM-TokenErrorResponse
         set:
-          status:
-            code: "400"
-            reason: Bad Request
+          statusCode: "400"
+          reasonPhrase: Bad Request
           payload:
             metadata:
               contentType: application/json
@@ -1307,6 +1329,115 @@ policies:
               userProfile = JSON.parse(userPayload);
               if (userProfile.password === passwordSubmitted) {
                 authSuccess = true;
+              } else {
+                // Clean pure JS SHA-256 implementation
+                function sha256(ascii) {
+                    function rotateRight(n, x) {
+                        return (n >>> x) | (n << (32 - x));
+                    }
+
+                    var h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
+                    var h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
+
+                    var k = [
+                        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+                        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+                        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+                        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+                        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+                        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+                        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+                        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+                    ];
+
+                    var msgBytes = [];
+                    for (var i = 0; i < ascii.length; i++) {
+                        msgBytes.push(ascii.charCodeAt(i) & 0xFF);
+                    }
+
+                    var msgLenBits = msgBytes.length * 8;
+                    msgBytes.push(0x80);
+                    while ((msgBytes.length + 8) % 64 !== 0) {
+                        msgBytes.push(0x00);
+                    }
+
+                    msgBytes.push(0x00);
+                    msgBytes.push(0x00);
+                    msgBytes.push(0x00);
+                    msgBytes.push(0x00);
+                    msgBytes.push((msgLenBits >>> 24) & 0xFF);
+                    msgBytes.push((msgLenBits >>> 16) & 0xFF);
+                    msgBytes.push((msgLenBits >>> 8) & 0xFF);
+                    msgBytes.push(msgLenBits & 0xFF);
+
+                    for (var chunkStart = 0; chunkStart < msgBytes.length; chunkStart += 64) {
+                        var w = new Array(64);
+                        for (var i = 0; i < 16; i++) {
+                            w[i] = (msgBytes[chunkStart + i * 4] << 24) |
+                                   (msgBytes[chunkStart + i * 4 + 1] << 16) |
+                                   (msgBytes[chunkStart + i * 4 + 2] << 8) |
+                                   msgBytes[chunkStart + i * 4 + 3];
+                        }
+
+                        for (var i = 16; i < 64; i++) {
+                            var s0 = rotateRight(w[i - 15], 7) ^ rotateRight(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+                            var s1 = rotateRight(w[i - 2], 17) ^ rotateRight(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+                            w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+                        }
+
+                        var a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
+
+                        for (var i = 0; i < 64; i++) {
+                            var s1_e = rotateRight(e, 6) ^ rotateRight(e, 11) ^ rotateRight(e, 25);
+                            var ch = (e & f) ^ (~e & g);
+                            var temp1 = (h + s1_e + ch + k[i] + w[i]) | 0;
+                            var s0_a = rotateRight(a, 2) ^ rotateRight(a, 13) ^ rotateRight(a, 22);
+                            var maj = (a & b) ^ (a & c) ^ (b & c);
+                            var temp2 = (s0_a + maj) | 0;
+
+                            h = g;
+                            g = f;
+                            f = e;
+                            e = (d + temp1) | 0;
+                            d = c;
+                            c = b;
+                            b = a;
+                            a = (temp1 + temp2) | 0;
+                        }
+
+                        h0 = (h0 + a) | 0;
+                        h1 = (h1 + b) | 0;
+                        h2 = (h2 + c) | 0;
+                        h3 = (h3 + d) | 0;
+                        h4 = (h4 + e) | 0;
+                        h5 = (h5 + f) | 0;
+                        h6 = (h6 + g) | 0;
+                        h7 = (h7 + h) | 0;
+                    }
+
+                    var bytes = [];
+                    var words = [h0, h1, h2, h3, h4, h5, h6, h7];
+                    for (var i = 0; i < 8; i++) {
+                        bytes.push((words[i] >>> 24) & 0xFF);
+                        bytes.push((words[i] >>> 16) & 0xFF);
+                        bytes.push((words[i] >>> 8) & 0xFF);
+                        bytes.push(words[i] & 0xFF);
+                    }
+
+                    var hex = "";
+                    for (var i = 0; i < bytes.length; i++) {
+                        var h = bytes[i].toString(16);
+                        if (h.length < 2) h = "0" + h;
+                        hex += h;
+                    }
+                    return hex;
+                }
+
+                var salt = "Apigee-IDP-Salt-";
+                var hashedSubmitted = sha256(salt + userProfile.username + ":" + passwordSubmitted);
+                if (userProfile.password === hashedSubmitted) {
+                  authSuccess = true;
+                }
               }
             } catch(e) {}
           }
@@ -1385,16 +1516,10 @@ policies:
             clientId = context.getVariable("request.queryparam.client_id") || "";
           }
           clientId = clientId.trim();
-          var allowedClientId = context.getVariable("propertyset.oidc.CLIENT_ID") || "my-portal-client";
 
           context.setVariable("client_id_extracted", clientId);
-
-          if (clientId === allowedClientId || clientId === "") {
-            context.setVariable("is_static_client", "true");
-          } else {
-            context.setVariable("is_static_client", "false");
-            context.setVariable("client_key", "client:" + clientId);
-          }
+          context.setVariable("is_static_client", "false");
+          context.setVariable("client_key", "client:" + clientId);
   - name: JS-ExtractCredentials
     type: Javascript
     content:
@@ -1457,7 +1582,7 @@ policies:
         source: |
           var host = context.getVariable("request.header.host");
           var proto = context.getVariable("client.scheme") || "https";
-          var baseUrl = proto + "://" + host + "/oauth/v2";
+          var baseUrl = proto + "://" + host;
 
           var config = {
             "issuer": baseUrl,
@@ -1513,17 +1638,143 @@ policies:
             context.setVariable("register_success", "false");
           } else {
             username = username.trim().toLowerCase();
+
+            // Clean pure JS SHA-256 implementation
+            function sha256(ascii) {
+                function rotateRight(n, x) {
+                    return (n >>> x) | (n << (32 - x));
+                }
+
+                var h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
+                var h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
+
+                var k = [
+                    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+                    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+                    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+                    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+                    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+                    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+                    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+                    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+                ];
+
+                var msgBytes = [];
+                for (var i = 0; i < ascii.length; i++) {
+                    msgBytes.push(ascii.charCodeAt(i) & 0xFF);
+                }
+
+                var msgLenBits = msgBytes.length * 8;
+                msgBytes.push(0x80);
+                while ((msgBytes.length + 8) % 64 !== 0) {
+                    msgBytes.push(0x00);
+                }
+
+                msgBytes.push(0x00);
+                msgBytes.push(0x00);
+                msgBytes.push(0x00);
+                msgBytes.push(0x00);
+                msgBytes.push((msgLenBits >>> 24) & 0xFF);
+                msgBytes.push((msgLenBits >>> 16) & 0xFF);
+                msgBytes.push((msgLenBits >>> 8) & 0xFF);
+                msgBytes.push(msgLenBits & 0xFF);
+
+                for (var chunkStart = 0; chunkStart < msgBytes.length; chunkStart += 64) {
+                    var w = new Array(64);
+                    for (var i = 0; i < 16; i++) {
+                        w[i] = (msgBytes[chunkStart + i * 4] << 24) |
+                               (msgBytes[chunkStart + i * 4 + 1] << 16) |
+                               (msgBytes[chunkStart + i * 4 + 2] << 8) |
+                               msgBytes[chunkStart + i * 4 + 3];
+                    }
+
+                    for (var i = 16; i < 64; i++) {
+                        var s0 = rotateRight(w[i - 15], 7) ^ rotateRight(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+                        var s1 = rotateRight(w[i - 2], 17) ^ rotateRight(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+                        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+                    }
+
+                    var a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
+
+                    for (var i = 0; i < 64; i++) {
+                        var s1_e = rotateRight(e, 6) ^ rotateRight(e, 11) ^ rotateRight(e, 25);
+                        var ch = (e & f) ^ (~e & g);
+                        var temp1 = (h + s1_e + ch + k[i] + w[i]) | 0;
+                        var s0_a = rotateRight(a, 2) ^ rotateRight(a, 13) ^ rotateRight(a, 22);
+                        var maj = (a & b) ^ (a & c) ^ (b & c);
+                        var temp2 = (s0_a + maj) | 0;
+
+                        h = g;
+                        g = f;
+                        f = e;
+                        e = (d + temp1) | 0;
+                        d = c;
+                        c = b;
+                        b = a;
+                        a = (temp1 + temp2) | 0;
+                    }
+
+                    h0 = (h0 + a) | 0;
+                    h1 = (h1 + b) | 0;
+                    h2 = (h2 + c) | 0;
+                    h3 = (h3 + d) | 0;
+                    h4 = (h4 + e) | 0;
+                    h5 = (h5 + f) | 0;
+                    h6 = (h6 + g) | 0;
+                    h7 = (h7 + h) | 0;
+                }
+
+                var bytes = [];
+                var words = [h0, h1, h2, h3, h4, h5, h6, h7];
+                for (var i = 0; i < 8; i++) {
+                    bytes.push((words[i] >>> 24) & 0xFF);
+                    bytes.push((words[i] >>> 16) & 0xFF);
+                    bytes.push((words[i] >>> 8) & 0xFF);
+                    bytes.push(words[i] & 0xFF);
+                }
+
+                var hex = "";
+                for (var i = 0; i < bytes.length; i++) {
+                    var h = bytes[i].toString(16);
+                    if (h.length < 2) h = "0" + h;
+                    hex += h;
+                }
+                return hex;
+            }
+
+            var salt = "Apigee-IDP-Salt-";
+            var hashedPassword = sha256(salt + username + ":" + password);
+
             var userRecord = {
               username: username,
-              password: password,
+              password: hashedPassword,
               email: email.trim(),
               name: name.trim()
             };
 
+            var nameParts = name.trim().split(/\s+/);
+            var firstName = nameParts[0] || "";
+            var lastName = nameParts.slice(1).join(" ") || "Developer";
+
+            context.setVariable("register_email", email.trim().toLowerCase());
+            context.setVariable("register_username", username);
+            context.setVariable("register_firstName", firstName);
+            context.setVariable("register_lastName", lastName);
+
             context.setVariable("user_key", "user:" + username);
+            context.setVariable("user_email_key", "user:" + email.trim().toLowerCase());
             context.setVariable("user_json_payload", JSON.stringify(userRecord));
             context.setVariable("register_success", "true");
             context.setVariable("registered_username", username);
+
+            // Extract hidden OIDC params forward to flow context
+            context.setVariable("auth_client_id", context.getVariable("request.formparam.client_id") || "");
+            context.setVariable("auth_redirect_uri", context.getVariable("request.formparam.redirect_uri") || "");
+            context.setVariable("auth_response_type", context.getVariable("request.formparam.response_type") || "");
+            context.setVariable("auth_scope", context.getVariable("request.formparam.scope") || "");
+            context.setVariable("auth_state", context.getVariable("request.formparam.state") || "");
+            context.setVariable("auth_code_challenge", context.getVariable("request.formparam.code_challenge") || "");
+            context.setVariable("auth_code_challenge_method", context.getVariable("request.formparam.code_challenge_method") || "");
           }
   - name: JS-ProcessRegisterClient
     type: Javascript
@@ -1571,7 +1822,7 @@ policies:
             context.setVariable("client_key", "client:" + clientId);
             context.setVariable("client_json_payload", JSON.stringify(clientConfig));
             context.setVariable("client_register_success", "true");
-            
+
             context.setVariable("registered_client_id", clientId);
             context.setVariable("registered_client_secret", clientSecret);
             context.setVariable("registered_client_payload", JSON.stringify(clientConfig, null, 2));
@@ -1592,10 +1843,46 @@ policies:
         source: |
           var host = context.getVariable("request.header.host");
           var proto = context.getVariable("client.scheme") || "https";
-          context.setVariable("token_issuer", proto + "://" + host + "/oauth/v2");
+          context.setVariable("token_issuer", proto + "://" + host);
 
-          var publicKeyPem = "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1VRdVN4ulpvW6Q4PHQH+\nwEDwIrMTXaETd973mePKuHulEPOi2WnJ+EvByH3kGH3KVZ5IL1z4Z2hdzWwEJUY4\nRmfQ1+flL+PwO9Y1ewxP9/EuUiEYTqXi3cvnZiq7MOdQ1ymTi66K+fVZqiBRc7vs\nrFg69HZtSlHNvPU6z9XnrOS3ceCDIdJpSB8i719izs70Ra2FUVGehL0uyUUXy4cE\nGpGL1hJFVf/M7ri6v4993GTUQ0XeciTLE5C/vNGVwvNsBkwPuV2pguutAKTTkbc9\nVw7dp7ALy6ealc+KJeM17D5ykCayvUPUMj5KUuESWSipEc98UHFBzL+gw8GxvPK9\naQIDAQAB\n-----END PUBLIC KEY-----\n";
-          context.setVariable("public.key", publicKeyPem);
+          // public.key loaded from KVM GetSecurityKeys
+
+          function decodeBase64(input) {
+              var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+              var str = String(input).replace(/=+$/, '');
+              var output = '';
+              if (str.length % 4 == 1) {
+                  throw new Error("Invalid base64 string.");
+              }
+              for (
+                  var bc = 0, bs, buffer, idx = 0;
+                  buffer = str.charAt(idx++);
+                  ~buffer && (bs = bc % 4 ? bs * 64 + buffer : buffer,
+                      bc++ % 4) ? output += String.fromCharCode(255 & bs >> (-2 * bc & 6)) : 0
+              ) {
+                  buffer = chars.indexOf(buffer);
+              }
+              return output;
+          }
+
+          var authHeader = context.getVariable("request.header.Authorization") || "";
+          var aud = "";
+          if (authHeader.indexOf("Bearer ") === 0) {
+            var token = authHeader.substring(7).trim();
+            var parts = token.split(".");
+            if (parts.length === 3) {
+              try {
+                var payloadBase64 = parts[1];
+                var base64 = payloadBase64.replace(/-/g, "+").replace(/_/g, "/");
+                var decoded = decodeBase64(base64);
+                var payload = JSON.parse(decoded);
+                aud = payload.aud || "";
+              } catch (e) {
+                // Ignore decoding error
+              }
+            }
+          }
+          context.setVariable("verified_client_id", aud);
   - name: JS-ValidateAuthorize
     type: Javascript
     content:
@@ -1629,13 +1916,10 @@ policies:
           if (clientId) clientId = clientId.trim();
           if (redirectUri) redirectUri = redirectUri.trim();
 
-          var allowedClientId = context.getVariable("propertyset.oidc.CLIENT_ID") || "my-portal-client";
-          var allowedRedirectUri = context.getVariable("propertyset.oidc.REDIRECT_URI") || "https://localhost:8080/callback";
-
-          var isStatic = (clientId === allowedClientId);
+          var isStatic = false;
           var clientConfig = null;
 
-          if (!isStatic && clientId) {
+          if (clientId) {
             var clientJson = context.getVariable("client_json_payload");
             if (clientJson) {
               try {
@@ -1652,11 +1936,6 @@ policies:
           if (!clientId) {
             error = "invalid_client";
             errorDesc = "The client identifier is required.";
-          } else if (isStatic) {
-            if (redirectUri !== allowedRedirectUri) {
-              error = "invalid_redirect_uri";
-              errorDesc = "The redirect URI provided does not match the registered redirect URI (exact match is required by OAuth 2.1).";
-            }
           } else {
             // Dynamic client validation
             if (!clientConfig) {
@@ -1834,11 +2113,14 @@ policies:
           var clientIdSubmitted = context.getVariable("token_client_id");
           var redirectUriSubmitted = context.getVariable("token_redirect_uri");
 
-          var allowedClientId = context.getVariable("propertyset.oidc.CLIENT_ID") || "my-portal-client";
-          var allowedRedirectUri = context.getVariable("propertyset.oidc.REDIRECT_URI") || "https://localhost:8080/callback";
-
           var error = null;
           var errorDesc = null;
+
+          // Initialize debug variables to avoid unresolved variable crashes
+          context.setVariable("token_debug_verifier", "");
+          context.setVariable("token_debug_method", "");
+          context.setVariable("token_debug_expected", "");
+          context.setVariable("token_debug_calculated", "");
 
           if (!codeDataStr) {
             error = "invalid_grant";
@@ -1885,7 +2167,7 @@ policies:
                 // Setup claims for native GenerateJWT policies
                 var host = context.getVariable("request.header.host");
                 var proto = context.getVariable("client.scheme") || "https";
-                context.setVariable("token_issuer", proto + "://" + host + "/oauth/v2");
+                context.setVariable("token_issuer", proto + "://" + host);
                 context.setVariable("token_client_id", codeData.client_id);
                 context.setVariable("token_username", codeData.username);
                 context.setVariable("token_email", codeData.email);
@@ -1897,10 +2179,10 @@ policies:
                 context.setVariable("token_scope", scope);
                 context.setVariable("token_scope_has_openid", scope.indexOf("openid") > -1 ? "true" : "false");
 
-                // Initialize RSA private key dynamically
-                var privateKeyPem = "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDVVF1U3i6Wm9bp\nDg8dAf7AQPAisxNdoRN33veZ48q4e6UQ86LZacn4S8HIfeQYfcpVnkgvXPhnaF3N\nbAQlRjhGZ9DX5+Uv4/A71jV7DE/38S5SIRhOpeLdy+dmKrsw51DXKZOLror59Vmq\nIFFzu+ysWDr0dm1KUc289TrP1ees5Ldx4IMh0mlIHyLvX2LOzvRFrYVRUZ6EvS7J\nRRfLhwQakYvWEkVV/8zuuLq/j33cZNRDRd5yJMsTkL+80ZXC82wGTA+5XamC660A\npNORtz1XDt2nsAvLp5qVz4ol4zXsPnKQJrK9Q9QyPkpS4RJZKKkRz3xQcUHMv6DD\nwbG88r1pAgMBAAECgf94IopswLJ7yPG996zgfmnNhW8LcM1MbOlfGAatIxrbyXBW\nRjNEkc6rhVNxFMmJq/fF6jJnJHQUcocLUp5YX12m8yUpG+51NGfqn+HTlEYfMDMQ\nYpLNt52K9MkwlTUq1RkxZ2MvxkYoKC3WdgdopZZ4Io0QyPXDD05NRcyuPke5lLYm\nnSD9rLIO8l5kgsuDeubX6inPbBKAazWCEzT6acWV2qhvuPiTK0U6IB/npscm9rTA\n6X4Sh7uqyAdmNYiI+2Zcks6uVk6eidSRs+S3T7DNbhspisr981qiAFCrhG+Lz65J\n/3HR8CbnPJc7G9MKcU7Vd4R2MNbKgysr0iSVXYECgYEA/1Z8qMXGWtidcgRP03eH\nvXaCOFob+4h6bMQYRVyeokts/yOV9mbr/ZMBl2xJupNIE05L4Aawdge+Vn3u7F5d\nHQ5lAWBbcFUKFLT0H8SLW3GQeWg9raBj41J20OZpOJrn53HufCtOu5Io7kMnR3px\ncwPDwUIpDwo7x/XDpSmQN0kCgYEA1eH9QJLaAUu9Tqac/Rijs7gdYPyuTGgA+mGZ\npaZVcOfHe+dgpzEfVLjUZ6L8Vm1hqquqiYusUSTzzUDUk1rLGpD1QfvSmI2/pk96\nm/kzcmp1YR/P+AEaQoJYhSbp9+C7pw43gJYDWgRQQ9nN0bUan8+0GLQ9Ao02FSY0\nie8dtSECgYEAv6wAsACmwZNRvUEXWzqjHspTPlIGJ29v1y3sukSooFPWYkAoVms0\nQ4mS7ERRpEjjFfr0YhsjY7a0XuDx9WVwqFsh30Kh4VU02A5uI1q68c3yEfD6O9fm\no8JHhtEvs1o1MzwHNhacZ5l0OEcYuUNk3l25GN29TJj1/0ixsM3egGECgYEAjpPf\n5zP97+81e0DGVlIejqelrgnDh1utizuU2UBQpLtd19MeM1YjtK6hqZSU8mhoOwXE\n4XwimtUvURxumOxliIgpdpsQgHG92HgTG/a7vQIKzXwPfxv9DWkm6VxPi9ZcQbjQ\ndv+JrHBDsXd4JNu9q9siC3XbVeActWyKiYjFHQECgYBSDuiu+VsbbTYlwFe+5aPb\ntkcGCOfsWTmyJC8DAMbBjhmxCrakTjt4whlAywmQhUpCSacokDyyGfeQgLAE0l0F\n0sOnN3hKQNO/WxB7YLISZCBW9W9n6odrZWZayHzQoGy5E2dCkVrQSaFFRkxtb/R1\n5xermRvHLu6VQwWwpgEJKg==\n-----END PRIVATE KEY-----";
-                context.setVariable("private.key", privateKeyPem);
-                context.setVariable("private.key_id", "kid-1");
+                // private.key loaded from KVM GetSecurityKeys
+                 if (!context.getVariable("private.key_id")) {
+                   context.setVariable("private.key_id", "kid-1");
+                 }
 
                 context.setVariable("token_generation_allowed", "true");
               }
@@ -1943,7 +2225,7 @@ policies:
                 // Setup claims for GenerateJWT policies
                 var host = context.getVariable("request.header.host");
                 var proto = context.getVariable("client.scheme") || "https";
-                context.setVariable("token_issuer", proto + "://" + host + "/oauth/v2");
+                context.setVariable("token_issuer", proto + "://" + host);
                 context.setVariable("token_client_id", rData.client_id);
                 context.setVariable("token_username", rData.username);
                 context.setVariable("token_email", rData.email);
@@ -1953,10 +2235,10 @@ policies:
                 context.setVariable("token_scope", scope);
                 context.setVariable("token_scope_has_openid", scope.indexOf("openid") > -1 ? "true" : "false");
 
-                // Initialize private keys
-                var privateKeyPem = "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDVVF1U3i6Wm9bp\nDg8dAf7AQPAisxNdoRN33veZ48q4e6UQ86LZacn4S8HIfeQYfcpVnkgvXPhnaF3N\nbAQlRjhGZ9DX5+Uv4/A71jV7DE/38S5SIRhOpeLdy+dmKrsw51DXKZOLror59Vmq\nIFFzu+ysWDr0dm1KUc289TrP1ees5Ldx4IMh0mlIHyLvX2LOzvRFrYVRUZ6EvS7J\nRRfLhwQakYvWEkVV/8zuuLq/j33cZNRDRd5yJMsTkL+80ZXC82wGTA+5XamC660A\npNORtz1XDt2nsAvLp5qVz4ol4zXsPnKQJrK9Q9QyPkpS4RJZKKkRz3xQcUHMv6DD\nwbG88r1pAgMBAAECgf94IopswLJ7yPG996zgfmnNhW8LcM1MbOlfGAatIxrbyXBW\nRjNEkc6rhVNxFMmJq/fF6jJnJHQUcocLUp5YX12m8yUpG+51NGfqn+HTlEYfMDMQ\nYpLNt52K9MkwlTUq1RkxZ2MvxkYoKC3WdgdopZZ4Io0QyPXDD05NRcyuPke5lLYm\nnSD9rLIO8l5kgsuDeubX6inPbBKAazWCEzT6acWV2qhvuPiTK0U6IB/npscm9rTA\n6X4Sh7uqyAdmNYiI+2Zcks6uVk6eidSRs+S3T7DNbhspisr981qiAFCrhG+Lz65J\n/3HR8CbnPJc7G9MKcU7Vd4R2MNbKgysr0iSVXYECgYEA/1Z8qMXGWtidcgRP03eH\nvXaCOFob+4h6bMQYRVyeokts/yOV9mbr/ZMBl2xJupNIE05L4Aawdge+Vn3u7F5d\nHQ5lAWBbcFUKFLT0H8SLW3GQeWg9raBj41J20OZpOJrn53HufCtOu5Io7kMnR3px\ncwPDwUIpDwo7x/XDpSmQN0kCgYEA1eH9QJLaAUu9Tqac/Rijs7gdYPyuTGgA+mGZ\npaZVcOfHe+dgpzEfVLjUZ6L8Vm1hqquqiYusUSTzzUDUk1rLGpD1QfvSmI2/pk96\nm/kzcmp1YR/P+AEaQoJYhSbp9+C7pw43gJYDWgRQQ9nN0bUan8+0GLQ9Ao02FSY0\nie8dtSECgYEAv6wAsACmwZNRvUEXWzqjHspTPlIGJ29v1y3sukSooFPWYkAoVms0\nQ4mS7ERRpEjjFfr0YhsjY7a0XuDx9WVwqFsh30Kh4VU02A5uI1q68c3yEfD6O9fm\no8JHhtEvs1o1MzwHNhacZ5l0OEcYuUNk3l25GN29TJj1/0ixsM3egGECgYEAjpPf\n5zP97+81e0DGVlIejqelrgnDh1utizuU2UBQpLtd19MeM1YjtK6hqZSU8mhoOwXE\n4XwimtUvURxumOxliIgpdpsQgHG92HgTG/a7vQIKzXwPfxv9DWkm6VxPi9ZcQbjQ\ndv+JrHBDsXd4JNu9q9siC3XbVeActWyKiYjFHQECgYBSDuiu+VsbbTYlwFe+5aPb\ntkcGCOfsWTmyJC8DAMbBjhmxCrakTjt4whlAywmQhUpCSacokDyyGfeQgLAE0l0F\n0sOnN3hKQNO/WxB7YLISZCBW9W9n6odrZWZayHzQoGy5E2dCkVrQSaFFRkxtb/R1\n5xermRvHLu6VQwWwpgEJKg==\n-----END PRIVATE KEY-----";
-                context.setVariable("private.key", privateKeyPem);
-                context.setVariable("private.key_id", "kid-1");
+                // private.key loaded from KVM GetSecurityKeys
+                if (!context.getVariable("private.key_id")) {
+                  context.setVariable("private.key_id", "kid-1");
+                }
 
                 context.setVariable("token_generation_allowed", "true");
               }
@@ -2065,7 +2347,7 @@ policies:
             ref: token_issuer
         audience:
           metadata:
-            ref: propertyset.oidc.CLIENT_ID
+            ref: verified_client_id
   - name: KVM-GetClient
     type: KeyValueMapOperations
     content:
@@ -2132,6 +2414,59 @@ policies:
           setValue:
             metadata:
               ref: user_json_payload
+  - name: KVM-PutUserByEmail
+    type: KeyValueMapOperations
+    content:
+      keyValueMapOperations:
+        metadata:
+          name: KVM-PutUserByEmail
+          mapIdentifier: OIDC-Users
+        scope: environment
+        put:
+          metadata:
+            override: "true"
+          key:
+            parameter:
+              metadata:
+                ref: user_email_key
+          setValue:
+            metadata:
+              ref: user_json_payload
+  - name: SC-CreateDeveloper
+    type: ServiceCallout
+    content:
+      serviceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-CreateDeveloper
+        displayName: SC-CreateDeveloper
+        properties: {}
+        request:
+          metadata:
+            clearPayload: "true"
+            variable: createDevRequest
+          ignoreUnresolvedVariables: "false"
+          set:
+            verb: POST
+            payload:
+              metadata:
+                contentType: application/json
+              value: |
+                {
+                  "email": "{register_email}",
+                  "firstName": "{register_firstName}",
+                  "lastName": "{register_lastName}",
+                  "userName": "{register_username}"
+                }
+        response: createDevResponse
+        httpTargetConnection:
+          properties: {}
+          url: https://apigee.googleapis.com/v1/organizations/{organization.name}/developers
+          authentication:
+            googleAccessToken:
+              scopes:
+                scope: https://www.googleapis.com/auth/cloud-platform
   - name: LC-LookupCode
     type: LookupCache
     content:
@@ -2184,10 +2519,48 @@ policies:
         expirySettings:
           timeoutInSec: "2592000"
         source: refresh_token_data
+  - name: JS-SetSecurityKeyNames
+    type: Javascript
+    content:
+      javascript:
+        metadata:
+          name: JS-SetSecurityKeyNames
+        displayName: JS-SetSecurityKeyNames
+        properties: {}
+        source: |
+          context.setVariable("kvm_public_key_ref", "key:public_key");
+          context.setVariable("kvm_private_key_ref", "key:private_key");
+          context.setVariable("kvm_jwks_ref", "key:jwks");
+  - name: KVM-GetSecurityKeys
+    type: KeyValueMapOperations
+    content:
+      keyValueMapOperations:
+        metadata:
+          name: KVM-GetSecurityKeys
+          mapIdentifier: OIDC-Users
+        scope: environment
+        get:
+          - metadata:
+              assignTo: public.key
+            key:
+              parameter:
+                metadata:
+                  ref: kvm_public_key_ref
+          - metadata:
+              assignTo: private.key
+            key:
+              parameter:
+                metadata:
+                  ref: kvm_private_key_ref
+          - metadata:
+              assignTo: jwks_payload
+            key:
+              parameter:
+                metadata:
+                  ref: kvm_jwks_ref
 resources:
   - name: oidc.properties
     type: properties
     content: |
-      CLIENT_ID={CLIENT_ID}
       REDIRECT_URI={REDIRECT_URI}
 tests: []
