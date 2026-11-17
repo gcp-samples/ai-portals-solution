@@ -8,3 +8,4 @@ firebase-debug.log
 private.pem
 public.pem
 jwks.json
+dist

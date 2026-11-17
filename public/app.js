@@ -2,14 +2,18 @@
  * Master Client-side logic for the Apigee AI Developer Portal
  */
 
-const CONFIG = {
-  demoMode: true,
-  portalId: "demo",
-  apiHost: "",
-  oidcEndpoint: "",
-  clientId: "",
-  portalConfig: null,
-};
+const CONFIG = Object.assign(
+  {
+    demoMode: true,
+    portalId: "demo",
+    apiHost: "",
+    oidcEndpoint: "",
+    clientId: "",
+    portalConfig: null,
+  },
+  typeof __FRONTEND_CONFIG__ !== "undefined" ? __FRONTEND_CONFIG__ : {},
+);
+window.CONFIG = CONFIG;
 
 // Global view initializers
 window.viewInitializers = {};
@@ -788,10 +792,14 @@ class AppPortal {
     document.body.classList.add("view-loading");
 
     const fetchAndUpdate = async () => {
-      const response = await fetch(`/views/${viewName}.html`);
-      if (!response.ok) throw new Error(`Failed to fetch view ${viewName}`);
-
-      const text = await response.text();
+      let text;
+      if (window.__BUNDLED_VIEWS__ && window.__BUNDLED_VIEWS__[viewName]) {
+        text = window.__BUNDLED_VIEWS__[viewName];
+      } else {
+        const response = await fetch(`/views/${viewName}.html`);
+        if (!response.ok) throw new Error(`Failed to fetch view ${viewName}`);
+        text = await response.text();
+      }
 
       // Inject Snippet
       mainContent.innerHTML = text;
@@ -961,4 +969,5 @@ class AppPortal {
 
 // Instantiate Global Portal Object
 const app = new AppPortal();
+window.app = app;
 window.addEventListener("DOMContentLoaded", () => app.init());

@@ -16,25 +16,29 @@ The **Apigee AI Portal** is a modern, agent-centric storefront template created 
 
 ### Prerequisites
 
-- Google Cloud Project, Apigee, API Hub, and Identity Platform provisioned.
-- Google Cloud SDK (gcloud) installed and authenticated, or access to [Cloud Shell](https://docs.cloud.google.com/shell/docs).
-- [Apigee Feature Templater](https://github.com/apigee/apigee-templater) and [Firebase CLI](https://firebase.google.com/docs/cli) installed.
+- Google Cloud Project with Apigee and API Hub provisioned.
+- Google Cloud SDK (`gcloud`) installed and authenticated, or access to [Cloud Shell](https://docs.cloud.google.com/shell/docs).
+- [Bun](https://bun.sh/) (used to bundle the frontend portal into a single HTML file).
+- [Apigee Feature Templater (`aft` v5)](https://github.com/apigee/apigee-templater) and `jq` installed.
 
 ## Deploy
 
-To deploy the solution, you will need to deploy 2 Apigee proxies and the web client, like this.
+The solution is managed with three scripts in `sh/` (configured via `.env` — see [env.example](env.example)):
 
-```sh
-# initialize .env file and client config
-source ./sh/initialize.sh
+1. **Initialize (first-time setup):** Creates `.env`, Apigee data collectors, KVMs, API Hub attributes, and the `portal-service` IAM service account.
+   ```sh
+   source ./sh/initialize.sh
+   ```
+2. **Reinitialize (optional):** Reloads `.env` and refreshes `APIGEE_ENVIRONMENT`, `APIGEE_HOST`, and `PROXY_SA` in your current shell.
+   ```sh
+   source ./sh/reinitialize.sh
+   ```
+3. **Deploy:** Compiles `public/index.html` into a single-file bundle with `bun`, embeds it as a resource in `REST-Portals.yaml` (served at `/portal`), and deploys both `REST-Portals` and `OIDC-OAuth21-IDP` proxies using `aft`.
+   ```sh
+   ./sh/deploy.sh
+   ```
 
-# deploy proxies
-aft -i ./proxies/OIDC-OAuth21-IDP.yaml -o "$GOOGLE_CLOUD_PROJECT:OIDC-OAuth21-IDP:$APIGEE_ENVIRONMENT:$PROXY_SA"
-aft -i ./proxies/REST-Portals.yaml -o "$GOOGLE_CLOUD_PROJECT:REST-Portals:$APIGEE_ENVIRONMENT:$PROXY_SA"
-
-# deploy frontend to firebase hosting
-firebase deploy --project $GOOGLE_CLOUD_PROJECT
-```
+Once deployed, access the developer portal at `https://<your-apigee-host>/portal`.
 
 ## Security Configuration (OIDC Keys Setup)
 
@@ -103,6 +107,65 @@ curl -X PUT "https://apigee.googleapis.com/v1/organizations/${ORG}/environments/
 
 > [!NOTE]
 > Make sure to delete the generated local `.pem` and `.json` files after successfully uploading them to the KVM to prevent them from being accidentally committed to your repository.
+
+## Automation & Machine-to-Machine API Access
+
+To call `POST Login`, `GET Apps`, and `POST App` from an automation script on behalf of users:
+
+### Recommended Pattern: `client_credentials` + `portal:admin` Scope
+1. Provision a machine OAuth client (e.g. `portal-admin`) in `sh/initialize.sh` (stored in the `OIDC-Users` KVM) with an allowed `portal:admin` scope.
+2. Add `grant_type=client_credentials` support to `OIDC-OAuth21-IDP.yaml` (`POST /token`) to validate `client_id`/`client_secret` and mint a short-lived RS256 JWT with `scope: "portal:admin"`.
+3. In `REST-Portals.yaml`, allow callers with `portal:admin` scope to target `{userEmail}` from the URL path (instead of requiring `jwt.JWT-AccessToken.claim.email`).
+
+Once enabled, an automation script obtains a token and calls the portal APIs as follows:
+
+```bash
+PORTAL_HOST="https://<your-apigee-host>"
+USER_EMAIL="developer@example.com"
+
+# 1. Obtain a machine access token (requires client_credentials support on /token)
+ACCESS_TOKEN=$(curl -s -X POST "${PORTAL_HOST}/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials&client_id=${PORTAL_ADMIN_CLIENT_ID}&client_secret=${PORTAL_ADMIN_CLIENT_SECRET}&scope=portal:admin" \
+  | jq -r '.access_token')
+
+# 2. POST Login (creates/ensures the developer exists in Apigee)
+curl -s -X POST "${PORTAL_HOST}/api/portals/demo/users/${USER_EMAIL}/login" \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\": \"${USER_EMAIL}\", \"firstName\": \"Jane\", \"lastName\": \"Doe\", \"userName\": \"${USER_EMAIL}\"}"
+
+# 3. GET Apps (lists the developer's apps and credentials)
+curl -s -X GET "${PORTAL_HOST}/api/portals/demo/users/${USER_EMAIL}/apps" \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}"
+
+# 4. POST App (creates a new developer app, optionally subscribing to products)
+curl -s -X POST "${PORTAL_HOST}/api/portals/demo/users/${USER_EMAIL}/apps" \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "coding-agent-app", "apiProducts": ["coding-agent-product"]}'
+```
+
+### Alternative (Works Today Without Proxy Changes): Mint a Per-User RS256 JWT
+Because `REST-Portals` verifies RS256 JWTs against `key:public_key` in `OIDC-Users` and `SC-GetApps` currently scopes lookups to `jwt.JWT-AccessToken.claim.email`, an automation script that holds `private.pem` can sign a short-lived JWT with `iss: "${HOST}"` and `email: "${USER_EMAIL}"`:
+
+```bash
+ACCESS_TOKEN=$(bun -e "
+  const crypto = require('crypto'), fs = require('fs');
+  const b64u = s => Buffer.from(s).toString('base64url');
+  const now = Math.floor(Date.now() / 1000);
+  const header = b64u(JSON.stringify({ alg: 'RS256', typ: 'JWT', kid: 'kid-1' }));
+  const payload = b64u(JSON.stringify({
+    iss: '${HOST}',
+    sub: '${USER_EMAIL}',
+    email: '${USER_EMAIL}',
+    iat: now,
+    exp: now + 300
+  }));
+  const sig = crypto.sign('RSA-SHA256', Buffer.from(header + '.' + payload), fs.readFileSync('private.pem', 'utf8')).toString('base64url');
+  console.log(header + '.' + payload + '.' + sig);
+")
+```
 
 ## Customization
 
