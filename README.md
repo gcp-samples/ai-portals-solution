@@ -23,19 +23,19 @@ The **Apigee AI Portal** is a modern, agent-centric storefront template created 
 
 ## Deploy
 
-The solution is managed with three scripts in `sh/` (configured via `.env` — see [env.example](env.example)):
+The solution is managed with three scripts in `scripts/` (configured via `.env` — see [env.example](env.example)):
 
 1. **Initialize (first-time setup):** Creates `.env`, Apigee data collectors, KVMs, API Hub attributes, and the `portal-service` IAM service account.
    ```sh
-   source ./sh/initialize.sh
+   source ./scripts/initialize.sh
    ```
 2. **Reinitialize (optional):** Reloads `.env` and refreshes `APIGEE_ENVIRONMENT`, `APIGEE_HOST`, and `PROXY_SA` in your current shell.
    ```sh
-   source ./sh/reinitialize.sh
+   source ./scripts/reinitialize.sh
    ```
-3. **Deploy:** Compiles `public/index.html` into a single-file bundle with `bun`, embeds it as a resource in `REST-Portals.yaml` (served at `/portal`), and deploys both `REST-Portals` and `OIDC-OAuth21-IDP` proxies using `aft`.
+3. **Deploy:** Compiles `public/index.html` into a single-file bundle with `bun`, embeds it as a resource in `REST-Portals.yaml` (served at `/portal`), seeds default model pricing from `config/default-prices.json` into Apigee KVM (`AI-Config` / `PriceList`) if not already present, and deploys both `REST-Portals` and `OIDC-OAuth21-IDP` proxies using `aft`.
    ```sh
-   ./sh/deploy.sh
+   ./scripts/deploy.sh
    ```
 
 Once deployed, access the developer portal at `https://<your-apigee-host>/portal`.
@@ -113,7 +113,7 @@ curl -X PUT "https://apigee.googleapis.com/v1/organizations/${ORG}/environments/
 To call `POST Login`, `GET Apps`, and `POST App` from an automation script on behalf of users:
 
 ### Recommended Pattern: `client_credentials` + `portal:admin` Scope
-1. Provision a machine OAuth client (e.g. `portal-admin`) in `sh/initialize.sh` (stored in the `OIDC-Users` KVM) with an allowed `portal:admin` scope.
+1. Provision a machine OAuth client (e.g. `portal-admin`) in `scripts/initialize.sh` (stored in the `OIDC-Users` KVM) with an allowed `portal:admin` scope.
 2. Add `grant_type=client_credentials` support to `OIDC-OAuth21-IDP.yaml` (`POST /token`) to validate `client_id`/`client_secret` and mint a short-lived RS256 JWT with `scope: "portal:admin"`.
 3. In `REST-Portals.yaml`, allow callers with `portal:admin` scope to target `{userEmail}` from the URL path (instead of requiring `jwt.JWT-AccessToken.claim.email`).
 
@@ -166,6 +166,85 @@ ACCESS_TOKEN=$(bun -e "
   console.log(header + '.' + payload + '.' + sig);
 ")
 ```
+
+## Testing the MCP Server (`/api/portals/mcp`)
+
+The portal exposes an OAuth-protected Model Context Protocol (MCP) endpoint at `POST /api/portals/mcp` with tools for searching the API Hub catalog (`getCatalog`, `searchCatalog`), managing apps and subscriptions (`createApp`, `subscribe`, `unsubscribe`), and retrieving API credentials (`getApps`, `getCredentials`).
+
+### 1. Obtain an Access Token
+
+**Option A: OAuth 2.1 Authorization Code + PKCE (for agents & MCP clients)**
+
+1. **Dynamic Client Registration** (note: no trailing slash on `PORTAL_HOST`):
+```bash
+PORTAL_HOST="https://<your-apigee-host>"
+
+CLIENT_ID=$(curl -s -X POST "${PORTAL_HOST}/register-client" \
+  -H "Content-Type: application/json" \
+  -d '{"client_name":"MCP Test Client","redirect_uris":["http://localhost:8080/callback"]}' \
+  | jq -r '.client_id')
+```
+
+2. **Generate PKCE `CODE_VERIFIER` and `CODE_CHALLENGE`, then authorize in browser** (sign in and copy the `code` query parameter from the redirect URL):
+```bash
+CODE_VERIFIER=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')
+CODE_CHALLENGE=$(printf '%s' "${CODE_VERIFIER}" | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+
+echo "Open in browser:"
+echo "${PORTAL_HOST}/authorize?client_id=${CLIENT_ID}&redirect_uri=http://localhost:8080/callback&response_type=code&scope=openid%20profile%20email%20mcp&code_challenge=${CODE_CHALLENGE}&code_challenge_method=S256&state=teststate"
+```
+
+3. **Exchange the authorization code for tokens**:
+```bash
+ACCESS_TOKEN=$(curl -s -X POST "${PORTAL_HOST}/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=authorization_code&client_id=${CLIENT_ID}&redirect_uri=http://localhost:8080/callback&code=${AUTH_CODE}&code_verifier=${CODE_VERIFIER}" \
+  | jq -r '.access_token')
+```
+
+**Option B: Quick CLI Token (using `private.pem` from the OIDC Keys Setup)**
+
+For quick `curl` testing without a browser login, mint a short-lived RS256 token using the snippet in [Mint a Per-User RS256 JWT](#alternative-works-today-without-proxy-changes-mint-a-per-user-rs256-jwt) above (setting `HOST="${PORTAL_HOST}"`).
+
+### 2. Call `initialize` and `tools/list`
+
+```bash
+# Initialize MCP session
+curl -s -X POST "${PORTAL_HOST}/api/portals/mcp" \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}' | jq .
+
+# List available MCP tools
+curl -s -X POST "${PORTAL_HOST}/api/portals/mcp" \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | jq .
+```
+
+### 3. Call Tools (Search Catalog & Get Credentials)
+
+```bash
+# Search APIs in API Hub
+curl -s -X POST "${PORTAL_HOST}/api/portals/mcp" \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"searchCatalog","arguments":{"query":"gemini"}}}' | jq .
+
+# Retrieve your apps and API credentials
+curl -s -X POST "${PORTAL_HOST}/api/portals/mcp" \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"getCredentials","arguments":{}}}' | jq .
+```
+
+### 4. Testing with MCP Inspector
+
+```bash
+npx @modelcontextprotocol/inspector@latest
+```
+
+Select **Streamable HTTP** transport, enter `${PORTAL_HOST}/api/portals/mcp`, and complete the OAuth login flow when prompted (or pass `Authorization: Bearer ${ACCESS_TOKEN}` in custom headers).
 
 ## Customization
 

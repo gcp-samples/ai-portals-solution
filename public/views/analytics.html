@@ -11,14 +11,14 @@
     <!-- Controls/Filters -->
     <div class="analytics-filters panel">
       <div class="filter-group">
-        <label for="filter-app">Application:</label>
+        <label for="filter-app">Subscription:</label>
         <select
           id="filter-app"
           class="input-control select-control"
           onchange="processAndRenderAnalytics()"
         >
-          <option value="all">All Applications</option>
-          <!-- Apps filled dynamically -->
+          <option value="all">All Subscriptions</option>
+          <!-- Subscriptions filled dynamically -->
         </select>
       </div>
 
@@ -31,6 +31,18 @@
         >
           <option value="all">All Products</option>
           <!-- Products filled dynamically -->
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="filter-model">AI Model:</label>
+        <select
+          id="filter-model"
+          class="input-control select-control"
+          onchange="processAndRenderAnalytics()"
+        >
+          <option value="all">All Models</option>
+          <!-- Models filled dynamically -->
         </select>
       </div>
     </div>
@@ -113,6 +125,39 @@
           <span class="kpi-sub-text">Prompt / Response Ratio</span>
         </div>
       </div>
+
+      <div class="kpi-card panel">
+        <div class="kpi-icon-box" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b">
+          <i data-lucide="zap" style="width: 1.5rem; height: 1.5rem"></i>
+        </div>
+        <div>
+          <span class="kpi-label">Avg Time to First Token</span>
+          <h2 class="kpi-value-text" id="kpi-ttft">0 ms</h2>
+          <span class="kpi-sub-text">Mean TTFT Latency</span>
+        </div>
+      </div>
+
+      <div class="kpi-card panel">
+        <div class="kpi-icon-box" style="background: rgba(236, 72, 153, 0.15); color: #ec4899">
+          <i data-lucide="circle-dollar-sign" style="width: 1.5rem; height: 1.5rem"></i>
+        </div>
+        <div>
+          <span class="kpi-label">Estimated Total Cost</span>
+          <h2 class="kpi-value-text" id="kpi-cost">$0.00</h2>
+          <span class="kpi-sub-text">Based on Model Token Rates</span>
+        </div>
+      </div>
+
+      <div class="kpi-card panel">
+        <div class="kpi-icon-box" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6">
+          <i data-lucide="cpu" style="width: 1.5rem; height: 1.5rem"></i>
+        </div>
+        <div>
+          <span class="kpi-label">Active Models Used</span>
+          <h2 class="kpi-value-text" id="kpi-models">0</h2>
+          <span class="kpi-sub-text">Distinct LLM Models</span>
+        </div>
+      </div>
     </div>
 
     <!-- Quota & Limits Section -->
@@ -151,6 +196,49 @@
         <div class="chart-container-box">
           <canvas id="chart-products"></canvas>
         </div>
+      </div>
+
+      <!-- Small Chart 3: Usage by Model -->
+      <div class="panel chart-card">
+        <h3>Token Usage &amp; Cost by Model</h3>
+        <div class="chart-container-box">
+          <canvas id="chart-models"></canvas>
+        </div>
+      </div>
+
+      <!-- Small Chart 4: TTFT Latency -->
+      <div class="panel chart-card">
+        <h3>Time to First Token (ms) Over Time</h3>
+        <div class="chart-container-box">
+          <canvas id="chart-ttft"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Model Usage, Latency & Cost Table -->
+    <div class="panel explorer-table-card" style="margin-top: 2rem">
+      <h3 style="margin-bottom: 1.25rem">Usage, Latency &amp; Cost by Model</h3>
+      <div style="overflow-x: auto">
+        <table class="analytics-table">
+          <thead>
+            <tr>
+              <th>AI Model</th>
+              <th>Requests</th>
+              <th>Prompt Tokens</th>
+              <th>Response Tokens</th>
+              <th>Total Tokens</th>
+              <th>Avg TTFT</th>
+              <th>Est. Cost</th>
+            </tr>
+          </thead>
+          <tbody id="model-analytics-table-body">
+            <tr>
+              <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem">
+                No model data loaded
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -465,6 +553,8 @@
   var volumeChartInstance = null;
   var tokenChartInstance = null;
   var productChartInstance = null;
+  var modelChartInstance = null;
+  var ttftChartInstance = null;
 
   window.viewInitializers["analytics"] = async function () {
     console.log("Analytics loading...");
@@ -475,101 +565,87 @@
     const loader = document.getElementById("analytics-loading-placeholder");
     const mainContent = document.getElementById("analytics-main-content");
 
-    // Ensure products and apps are loaded if they are empty
-    if (!app.products || app.products.length === 0) {
-      try {
-        let products = [];
-        if (CONFIG.demoMode) {
-          const res = await fetch('/mock-products.json');
-          const data = await res.json();
-          products = data.products || [];
-        } else {
-          const res = await fetch(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/products`);
-          if (res.ok) {
-            const data = await res.json();
-            products = data.products || [];
-          }
-        }
-        app.products = products;
-      } catch (err) {
-        console.error("Failed to load products in analytics", err);
-      }
+    // 1. Hydrate products & apps from cache immediately (zero blocking)
+    const cachedProducts = app.getCachedData(app.getProductsCacheKey());
+    if (Array.isArray(cachedProducts) && (!app.products || app.products.length === 0)) {
+      app.products = cachedProducts;
+    }
+    const cachedApps = app.getCachedData(app.getAppsCacheKey());
+    if (Array.isArray(cachedApps) && (!app.apps || app.apps.length === 0)) {
+      app.apps = cachedApps;
     }
 
-    if (!app.apps || app.apps.length === 0) {
-      try {
-        let userApps = [];
-        if (CONFIG.demoMode) {
-          const cached = localStorage.getItem('prism_apps_demo');
-          if (cached) {
-            const data = JSON.parse(cached);
-            userApps = Array.isArray(data) ? data : (data.apps || []);
-          } else {
-            const res = await fetch('/mock-apps.json');
-            const data = await res.json();
-            userApps = data.apps || [];
-            localStorage.setItem('prism_apps_demo', JSON.stringify(userApps));
-          }
-        } else if (app.user && app.user.email) {
-          const res = await app.makeRequest(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${app.user.email}/apps`);
-          if (res.ok) {
-            const data = await res.json();
-            userApps = data.apps || [];
-          }
-        }
-        app.apps = userApps;
-      } catch (err) {
-        console.error("Failed to load apps in analytics", err);
-      }
-    }
-
+    // 2. Render cached analytics immediately if available
     const cacheKey = `prism_analytics_cache_${app.user ? app.user.email : "guest"}`;
-    const cachedAnalyticsRaw = localStorage.getItem(cacheKey);
+    const cachedStats = app.getCachedData(cacheKey);
+    const cacheAgeMs = app.getCacheAgeMs(cacheKey);
     let hasCache = false;
 
-    if (cachedAnalyticsRaw) {
-      try {
-        const cachedStats = JSON.parse(cachedAnalyticsRaw);
-        rawAnalyticsData = cachedStats;
-        populateFilterSelectors();
-        processAndRenderAnalytics();
+    if (cachedStats) {
+      rawAnalyticsData = cachedStats;
+      populateFilterSelectors();
+      processAndRenderAnalytics();
 
-        if (loader) loader.style.display = "none";
-        if (mainContent) mainContent.style.display = "block";
-        hasCache = true;
-      } catch (e) {
-        console.error("Error parsing cached analytics data", e);
+      app.hideGlobalLoader();
+      if (loader) loader.style.display = "none";
+      if (mainContent) mainContent.style.display = "block";
+      hasCache = true;
+
+      // Skip redundant network fetch when switching tabs within 30s
+      if (cacheAgeMs < 30000) {
+        return;
       }
     }
 
     if (!hasCache) {
-      if (loader) loader.style.display = "block";
+      app.showGlobalLoader("Loading analytics...");
+      if (loader) {
+        loader.innerHTML = `
+          <div class="portal-loader-card" style="padding: 3rem 1.5rem;">
+            <div class="portal-spinner"></div>
+            <p style="color: var(--text-secondary); font-size: 1.05rem; font-weight: 500;">Loading analytics statistics...</p>
+          </div>
+        `;
+        loader.style.display = "block";
+      }
       if (mainContent) mainContent.style.display = "none";
     }
 
+    // 3. Revalidate products, apps, and analytics in parallel in the background
     try {
-      let stats;
-      if (CONFIG.demoMode) {
-        const res = await fetch("/mock-analytics.json");
-        stats = await res.json();
-      } else {
-        const res = await app.makeRequest(
-          `${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${app.user.email}/analytics`,
-        );
-        if (!res.ok) throw new Error();
-        stats = await res.json();
-      }
+      const [,, stats] = await Promise.all([
+        app.getCacheAgeMs(app.getProductsCacheKey()) < 30000 ? Promise.resolve() : app.loadProductsWithCache(),
+        app.getCacheAgeMs(app.getAppsCacheKey()) < 30000 ? Promise.resolve() : app.loadAppsWithCache(),
+        (async () => {
+          if (CONFIG.demoMode) {
+            const res = await fetch("/mock-analytics.json");
+            return await res.json();
+          }
+          const res = await app.makeRequest(
+            `${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${app.user.email}/analytics`,
+          );
+          if (!res.ok) throw new Error();
+          return await res.json();
+        })(),
+      ]);
+
+      const prevJson = hasCache ? JSON.stringify(rawAnalyticsData) : "";
+      const nextJson = JSON.stringify(stats);
 
       rawAnalyticsData = stats;
-      localStorage.setItem(cacheKey, JSON.stringify(stats));
+      app.setCachedData(cacheKey, stats);
 
-      populateFilterSelectors();
-      processAndRenderAnalytics();
+      if (!hasCache || prevJson !== nextJson) {
+        populateFilterSelectors();
+        processAndRenderAnalytics();
+      }
 
+      app.hideGlobalLoader();
       if (loader) loader.style.display = "none";
       if (mainContent) mainContent.style.display = "block";
     } catch (err) {
       console.error(err);
+      app.hideGlobalLoader();
       if (!hasCache) {
         app.showToast("Failed to fetch analytics metrics", "error");
         if (loader) loader.style.display = "none";
@@ -580,14 +656,16 @@
   function populateFilterSelectors() {
     const appSelect = document.getElementById("filter-app");
     const productSelect = document.getElementById("filter-product");
+    const modelSelect = document.getElementById("filter-model");
 
     if (!appSelect || !productSelect) return;
 
-    // console.log(rawAnalyticsData);
-
     // Clear dynamic options
-    appSelect.innerHTML = `<option value="all">All Applications</option>`;
+    appSelect.innerHTML = `<option value="all">All Subscriptions</option>`;
     productSelect.innerHTML = `<option value="all">All Products</option>`;
+    if (modelSelect) {
+      modelSelect.innerHTML = `<option value="all">All Models</option>`;
+    }
 
     // Find distinct apps
     const appNames = new Set();
@@ -634,6 +712,29 @@
     productNames.forEach((name) => {
       productSelect.innerHTML += `<option value="${name}">${name}</option>`;
     });
+
+    // Find distinct models
+    if (modelSelect && rawAnalyticsData.model) {
+      const modelNames = new Set();
+      rawAnalyticsData.model.forEach((entry) => {
+        if (entry.environments) {
+          entry.environments.forEach((env) => {
+            if (env.dimensions) {
+              env.dimensions.forEach((dim) => {
+                if (dim.individualNames) {
+                  dim.individualNames.forEach((name) => {
+                    if (name && name !== "(not set)") modelNames.add(name);
+                  });
+                }
+              });
+            }
+          });
+        }
+      });
+      modelNames.forEach((name) => {
+        modelSelect.innerHTML += `<option value="${name}">${name}</option>`;
+      });
+    }
   }
 
   function processAndRenderAnalytics() {
@@ -641,6 +742,9 @@
 
     const selectedApp = document.getElementById("filter-app").value;
     const selectedProd = document.getElementById("filter-product").value;
+    const selectedModel = document.getElementById("filter-model")
+      ? document.getElementById("filter-model").value
+      : "all";
 
     // Containers for results grouping
     let totalRequests = 0;
@@ -765,6 +869,87 @@
       });
     }
 
+    // 3. Process Model logs (usage by model, TTFT latency, and estimated cost)
+    const modelStats = {};
+    const dailyTtft = {};
+    let totalCost = 0;
+    let ttftSum = 0;
+    let ttftCount = 0;
+
+    if (rawAnalyticsData.model) {
+      rawAnalyticsData.model.forEach((entry) => {
+        if (entry.environments) {
+          entry.environments.forEach((env) => {
+            if (env.dimensions) {
+              env.dimensions.forEach((dim) => {
+                const mName = dim.individualNames ? dim.individualNames[0] : "";
+                if (!mName || mName === "(not set)") return;
+                if (selectedModel !== "all" && selectedModel !== mName) return;
+
+                if (!modelStats[mName]) {
+                  modelStats[mName] = {
+                    requests: 0,
+                    prompts: 0,
+                    responses: 0,
+                    ttftSum: 0,
+                    ttftCount: 0,
+                    cost: 0,
+                  };
+                }
+
+                if (dim.metrics) {
+                  dim.metrics.forEach((m) => {
+                    const isMsg = m.name === "sum(message_count)";
+                    const isPrompt = m.name === "sum(dc_ai_prompt_token_count)";
+                    const isResp = m.name === "sum(dc_ai_response_token_count)";
+                    const isTtft = m.name === "avg(dc_ai_time_first_token)";
+
+                    if (m.values) {
+                      m.values.forEach((v) => {
+                        const ts = parseInt(v.timestamp);
+                        const val = parseFloat(v.value) || 0;
+                        if (isMsg) modelStats[mName].requests += Math.round(val);
+                        if (isPrompt) modelStats[mName].prompts += Math.round(val);
+                        if (isResp) modelStats[mName].responses += Math.round(val);
+                        if (isTtft && val > 0) {
+                          modelStats[mName].ttftSum += val;
+                          modelStats[mName].ttftCount += 1;
+                          ttftSum += val;
+                          ttftCount += 1;
+                          if (!dailyTtft[ts]) dailyTtft[ts] = { sum: 0, count: 0 };
+                          dailyTtft[ts].sum += val;
+                          dailyTtft[ts].count += 1;
+                        }
+                      });
+                    }
+                  });
+                }
+
+                modelStats[mName].cost = app.estimateModelCost(
+                  mName,
+                  modelStats[mName].prompts,
+                  modelStats[mName].responses,
+                );
+                totalCost += modelStats[mName].cost;
+              });
+            }
+          });
+        }
+      });
+    }
+
+    // If a specific model is selected and no app/product filter overrides, reflect model totals
+    if (selectedModel !== "all" && selectedApp === "all" && selectedProd === "all") {
+      totalRequests = 0;
+      totalPrompts = 0;
+      totalResponses = 0;
+      Object.values(modelStats).forEach((ms) => {
+        totalRequests += ms.requests;
+        totalPrompts += ms.prompts;
+        totalResponses += ms.responses;
+      });
+    }
+
     // Update KPI displays
     document.getElementById("kpi-requests").textContent = Number(totalRequests).toLocaleString();
     document.getElementById("kpi-tokens").textContent = formatTokensNumber(
@@ -774,8 +959,28 @@
     const efficiency = totalPrompts > 0 ? Math.round((totalResponses / totalPrompts) * 100) : 0;
     document.getElementById("kpi-efficiency").textContent = `${efficiency}%`;
 
+    const avgTtft = ttftCount > 0 ? Math.round(ttftSum / ttftCount) : 0;
+    const kpiTtftEl = document.getElementById("kpi-ttft");
+    if (kpiTtftEl) {
+      kpiTtftEl.textContent = avgTtft >= 1000 ? `${(avgTtft / 1000).toFixed(2)} s` : `${avgTtft} ms`;
+    }
+
+    const kpiCostEl = document.getElementById("kpi-cost");
+    if (kpiCostEl) {
+      kpiCostEl.textContent = `$${totalCost.toFixed(2)}`;
+    }
+
+    const activeModelsCount = Object.values(modelStats).filter(
+      (m) => m.requests > 0 || m.prompts > 0 || m.responses > 0,
+    ).length;
+    const kpiModelsEl = document.getElementById("kpi-models");
+    if (kpiModelsEl) {
+      kpiModelsEl.textContent = activeModelsCount.toLocaleString();
+    }
+
     // Re-build tables
     buildAnalyticsExplorerTable(selectedProd, selectedApp);
+    buildModelAnalyticsTable(modelStats);
 
     // Process chart series sorted chronologically
     const sortedTimestamps = Object.keys(dailySeries)
@@ -789,11 +994,16 @@
     const volumeData = sortedTimestamps.map((ts) => dailySeries[ts].requests);
     const promptsData = sortedTimestamps.map((ts) => dailySeries[ts].prompts);
     const responsesData = sortedTimestamps.map((ts) => dailySeries[ts].responses);
+    const ttftData = sortedTimestamps.map((ts) =>
+      dailyTtft[ts] && dailyTtft[ts].count > 0 ? Math.round(dailyTtft[ts].sum / dailyTtft[ts].count) : 0,
+    );
 
     // Render Charts
     renderVolumeChart(labels, volumeData);
     renderTokenChart(labels, promptsData, responsesData);
     renderProductsChart(productShare);
+    renderModelChart(modelStats);
+    renderTtftChart(labels, ttftData);
 
     // Render Quota Limits
     renderAppQuotaLimits();
@@ -867,6 +1077,130 @@
     });
 
     tbody.innerHTML = html;
+  }
+
+  function buildModelAnalyticsTable(modelStats) {
+    const tbody = document.getElementById("model-analytics-table-body");
+    if (!tbody) return;
+
+    const entries = Object.entries(modelStats).sort(
+      (a, b) => b[1].prompts + b[1].responses - (a[1].prompts + a[1].responses),
+    );
+    if (entries.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">No model usage data matches your current filters.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = entries
+      .map(([modelName, row]) => {
+        const totalTokens = row.prompts + row.responses;
+        const avgTtft = row.ttftCount > 0 ? Math.round(row.ttftSum / row.ttftCount) : 0;
+        return `
+        <tr>
+          <td style="font-weight:600;">${modelName}</td>
+          <td>${Number(row.requests).toLocaleString()}</td>
+          <td>${Number(row.prompts).toLocaleString()}</td>
+          <td>${Number(row.responses).toLocaleString()}</td>
+          <td style="font-weight:700;">${Number(totalTokens).toLocaleString()}</td>
+          <td>${avgTtft} ms</td>
+          <td style="font-weight:600; color:var(--success);">$${row.cost.toFixed(4)}</td>
+        </tr>
+      `;
+      })
+      .join("");
+  }
+
+  function renderModelChart(modelStats) {
+    const canvas = document.getElementById("chart-models");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (modelChartInstance) modelChartInstance.destroy();
+
+    const isLight = app.theme === "light";
+    const sorted = Object.entries(modelStats)
+      .sort((a, b) => b[1].prompts + b[1].responses - (a[1].prompts + a[1].responses))
+      .slice(0, 8);
+
+    const labels = sorted.map(([name]) => name);
+    const tokenValues = sorted.map(([, s]) => s.prompts + s.responses);
+
+    modelChartInstance = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Total Tokens",
+            data: tokenValues,
+            backgroundColor: "#8b5cf6",
+            borderRadius: 4,
+          },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+        },
+        scales: {
+          x: {
+            grid: { color: isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)" },
+            ticks: { color: isLight ? "#475569" : "#9ca3af" },
+          },
+          y: {
+            grid: { color: isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)" },
+            ticks: { color: isLight ? "#475569" : "#9ca3af" },
+          },
+        },
+      },
+    });
+  }
+
+  function renderTtftChart(labels, ttftData) {
+    const canvas = document.getElementById("chart-ttft");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (ttftChartInstance) ttftChartInstance.destroy();
+
+    const isLight = app.theme === "light";
+
+    ttftChartInstance = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Avg TTFT (ms)",
+            data: ttftData,
+            borderColor: "#f59e0b",
+            backgroundColor: "rgba(245, 158, 11, 0.12)",
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2,
+            pointRadius: 3,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+        },
+        scales: {
+          x: {
+            grid: { color: isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)" },
+            ticks: { color: isLight ? "#475569" : "#9ca3af" },
+          },
+          y: {
+            grid: { color: isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)" },
+            ticks: { color: isLight ? "#475569" : "#9ca3af" },
+          },
+        },
+      },
+    });
   }
 
   // Chart.js Generators

@@ -1,5 +1,5 @@
 /**
- * Master Client-side logic for the Apigee AI Developer Portal
+ * Master Client-side logic for the Apigee AI Portal
  */
 
 const CONFIG = Object.assign(
@@ -26,41 +26,67 @@ class AppPortal {
     this.apps = [];
     this.initialLoad = false;
     this.codeDefaultDemoMode = CONFIG.demoMode;
+    this._refreshPromise = null;
+    this._memoryCache = {};
   }
 
   async init() {
     this.initialLoad = true;
 
-    // Load local config overrides if present
-    try {
-      const response = await fetch("/CONFIG.local.json");
-      if (response.ok) {
-        const localConfig = await response.json();
-        Object.assign(CONFIG, localConfig);
-        this.codeDefaultDemoMode = CONFIG.demoMode;
-        console.log("Loaded CONFIG.local.json overrides:", localConfig);
-      }
-    } catch (e) {
-      console.log("No CONFIG.local.json found or failed to parse, using default configuration.");
+    // Load local config overrides only in local dev
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      try {
+        const response = await fetch("/CONFIG.local.json");
+        if (response.ok) {
+          const localConfig = await response.json();
+          Object.assign(CONFIG, localConfig);
+          this.codeDefaultDemoMode = CONFIG.demoMode;
+        }
+      } catch (e) {}
     }
 
     this.loadSettingsFromStorage();
     this.setupTheme();
     this.setupEventListeners();
 
-    // Load config based on mode
-    await this.loadPortalConfig();
-
-    // Handle OIDC authorization callback if query params are present
-    if (!CONFIG.demoMode) {
-      await this.discoverOidcEndpoint();
-      await this.handleOidcCallback();
+    // Hydrate portal config from localStorage immediately if available
+    const cachedPortalCfg = this.getCachedData(`portal_config_cache_${CONFIG.portalId}`);
+    if (cachedPortalCfg) {
+      this.applyPortalConfig(cachedPortalCfg);
     }
 
-    // Process initial route
-    this.handleRoute();
+    const hasOidcCode = new URLSearchParams(window.location.search).has("code");
+    const hasPortalToken = window.location.hash && window.location.hash.includes("portal_token=");
+
+    if (!CONFIG.demoMode && (hasOidcCode || hasPortalToken)) {
+      await this.loadPortalConfig();
+      await this.discoverOidcEndpoint();
+      await this.handleOidcCallback();
+      await this.handlePortalTokenHash();
+      this.handleRoute();
+    } else {
+      // Render immediately using cached data/views, then refresh portal config in background
+      this.handleRoute();
+      this.loadPortalConfig().catch((e) => console.warn("Background config refresh failed:", e));
+    }
+
     window.addEventListener("hashchange", () => this.handleRoute());
     this.initialLoad = false;
+  }
+
+  applyPortalConfig(config) {
+    if (!config) return;
+    CONFIG.portalConfig = config;
+    if (config.oidcEndpoint) CONFIG.oidcEndpoint = config.oidcEndpoint;
+    if (config.clientId) CONFIG.clientId = config.clientId;
+
+    const title = config.name || "Apigee AI Portal";
+    const titleEl = document.getElementById("portal-title");
+    const footerEl = document.getElementById("footer-portal-title");
+    if (titleEl) titleEl.textContent = title;
+    if (footerEl) footerEl.textContent = title;
+    document.title = title;
+    this.updateAuthHeaderUI();
   }
 
   loadSettingsFromStorage() {
@@ -244,17 +270,8 @@ class AppPortal {
         }
       }
 
-      CONFIG.portalConfig = config;
-      if (config.oidcEndpoint) CONFIG.oidcEndpoint = config.oidcEndpoint;
-      if (config.clientId) CONFIG.clientId = config.clientId;
-
-      // Update UI title
-      const title = config.name || "Apigee AI Portal";
-      document.getElementById("portal-title").textContent = title;
-      document.getElementById("footer-portal-title").textContent = title;
-      document.title = title;
-
-      this.updateAuthHeaderUI();
+      this.applyPortalConfig(config);
+      this.setCachedData(`portal_config_cache_${CONFIG.portalId}`, config);
 
       if (!CONFIG.demoMode) {
         await this.discoverOidcEndpoint();
@@ -369,6 +386,8 @@ class AppPortal {
         displayName: displayName,
         photoURL: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
         token: idToken,
+        refreshToken: data.refresh_token || "",
+        expiresAt: Date.now() + (Number(data.expires_in) || 3600) * 1000,
       };
 
       this.setUser(userObj);
@@ -383,6 +402,49 @@ class AppPortal {
       sessionStorage.removeItem("oidc_code_verifier");
       sessionStorage.removeItem("oidc_state");
       window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
+
+  async handlePortalTokenHash() {
+    const rawHash = window.location.hash || "";
+    if (!rawHash.includes("portal_token=")) return;
+
+    const hashBody = rawHash.startsWith("#") ? rawHash.slice(1) : rawHash;
+    const match = hashBody.match(/(?:^|[?&])portal_token=([^&]+)/);
+    if (!match || !match[1]) return;
+
+    try {
+      const idToken = decodeURIComponent(match[1]);
+      const decoded = this.decodeJwt(idToken);
+      if (!decoded || !decoded.email) {
+        throw new Error("Portal handoff token missing email claim");
+      }
+      if (decoded.exp && decoded.exp * 1000 < Date.now()) {
+        throw new Error("Portal handoff token has expired");
+      }
+
+      const email = decoded.email;
+      const displayName = decoded.name || email.split("@")[0];
+      await this.liveLogin(email, idToken, displayName, "");
+
+      const userObj = {
+        email,
+        displayName,
+        photoURL: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
+        token: idToken,
+        refreshToken: "",
+        expiresAt: decoded.exp ? decoded.exp * 1000 : Date.now() + 3600 * 1000,
+      };
+      this.setUser(userObj);
+      localStorage.setItem("portal_live_user", JSON.stringify(userObj));
+    } catch (err) {
+      console.error("Portal token handoff failed:", err);
+    } finally {
+      const cleanedHash = hashBody
+        .replace(/(?:^|[?&])portal_token=[^&]+/, "")
+        .replace(/^[?&]/, "");
+      const nextUrl = window.location.pathname + window.location.search + (cleanedHash ? `#${cleanedHash}` : "");
+      window.history.replaceState({}, document.title, nextUrl);
     }
   }
 
@@ -454,7 +516,7 @@ class AppPortal {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          client_name: "Apigee Developer Portal",
+          client_name: "Apigee AI Portal",
           redirect_uris: [redirectUri],
         }),
       });
@@ -706,10 +768,11 @@ class AppPortal {
     if (!authSection) return;
 
     if (this.user) {
+      const initial = ((this.user.displayName || this.user.email || "?").trim().charAt(0) || "?").toUpperCase();
       authSection.innerHTML = `
         <div class="user-menu">
           <div class="profile-btn">
-            <img class="avatar" src="${this.user.photoURL}" alt="${this.user.displayName}">
+            <div class="avatar avatar-initial" aria-hidden="true">${initial}</div>
             <span class="profile-name">${this.user.displayName}</span>
             <i data-lucide="chevron-down" style="width:1rem; height:1rem; color:var(--text-secondary);"></i>
           </div>
@@ -720,7 +783,7 @@ class AppPortal {
             </div>
             <div class="dropdown-item" onclick="app.navigate('apps')">
               <i data-lucide="layers" style="width:1rem; height:1rem;"></i>
-              My Apps
+              Subscriptions
             </div>
             <div class="dropdown-item" onclick="app.navigate('analytics')">
               <i data-lucide="line-chart" style="width:1rem; height:1rem;"></i>
@@ -758,14 +821,14 @@ class AppPortal {
     const hash = window.location.hash || "#home";
     const parts = hash.split("/");
     let view = parts[0].substring(1);
-    const param = parts[1]; // e.g. productId in #product/:id
+    const param = parts.length > 2 ? parts.slice(1).join("/") : parts[1]; // e.g. productId in #product/:id or edit/:id in #admin/edit/:id
 
     if (view === "product") {
       view = "product-detail";
     }
 
     // Route guarding
-    if ((view === "apps" || view === "analytics" || view === "ard") && !this.user) {
+    if ((view === "apps" || view === "analytics" || view === "ard" || view === "admin") && !this.user) {
       this.showToast("Please sign in to view this section", "warning");
       this.navigate("home");
       return;
@@ -774,7 +837,11 @@ class AppPortal {
     // Set active nav link
     document.querySelectorAll(".nav-link").forEach((link) => {
       const href = link.getAttribute("href");
-      if (href === hash || (href === "#catalog" && hash.startsWith("#product"))) {
+      if (
+        href === hash ||
+        (href === "#catalog" && hash.startsWith("#product")) ||
+        (href === "#admin" && hash.startsWith("#admin"))
+      ) {
         link.classList.add("active");
       } else {
         link.classList.remove("active");
@@ -787,11 +854,9 @@ class AppPortal {
 
   async loadView(viewName, param) {
     const mainContent = document.getElementById("main-content");
-
-    // Add loading indicator class to body
     document.body.classList.add("view-loading");
 
-    const fetchAndUpdate = async () => {
+    try {
       let text;
       if (window.__BUNDLED_VIEWS__ && window.__BUNDLED_VIEWS__[viewName]) {
         text = window.__BUNDLED_VIEWS__[viewName];
@@ -801,10 +866,11 @@ class AppPortal {
         text = await response.text();
       }
 
-      // Inject Snippet
+      mainContent.classList.remove("view-enter");
       mainContent.innerHTML = text;
+      void mainContent.offsetWidth;
+      mainContent.classList.add("view-enter");
 
-      // Find & Evaluate nested JS script tags
       const scriptElements = mainContent.querySelectorAll("script");
       scriptElements.forEach((oldScript) => {
         const newScript = document.createElement("script");
@@ -815,76 +881,44 @@ class AppPortal {
         oldScript.parentNode.replaceChild(newScript, oldScript);
       });
 
-      // Execute the view's initializer if registered
+      const managesOwnLoader = ["catalog", "apps", "analytics", "admin"].includes(viewName);
+      if (!managesOwnLoader) {
+        this.hideGlobalLoader();
+      }
+
       if (window.viewInitializers[viewName]) {
-        await window.viewInitializers[viewName](param);
+        Promise.resolve(window.viewInitializers[viewName](param))
+          .catch((err) => console.error(`View initializer failed for ${viewName}:`, err))
+          .finally(() => {
+            if (!managesOwnLoader) this.hideGlobalLoader();
+            document.body.classList.remove("view-loading");
+            lucide.createIcons();
+          });
+      } else {
+        this.hideGlobalLoader();
+        document.body.classList.remove("view-loading");
       }
 
-      // Re-create icons for any new Lucide tags
       lucide.createIcons();
-    };
 
-    if (!document.startViewTransition) {
-      // Show loading skeleton for fallback
-      mainContent.innerHTML = `
-        <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:400px; gap:1rem;">
-          <div style="border: 4px solid var(--border-color); border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
-          <div style="color:var(--text-secondary); font-weight:500;">Loading content...</div>
-        </div>
-        <style>
-          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        </style>
-      `;
-      try {
-        await fetchAndUpdate();
-        // Accessibility Routing
-        const autofocusEl = mainContent.querySelector("[autofocus]");
-        if (autofocusEl) {
-          autofocusEl.focus();
+      const autofocusEl = mainContent.querySelector("[autofocus]");
+      if (autofocusEl) {
+        autofocusEl.focus();
+      } else {
+        const heading = mainContent.querySelector("h1, h2");
+        if (heading) {
+          heading.setAttribute("tabindex", "-1");
+          heading.focus();
         } else {
-          const heading = mainContent.querySelector("h1, h2");
-          if (heading) {
-            heading.setAttribute("tabindex", "-1");
-            heading.focus();
-          } else {
-            mainContent.setAttribute("tabindex", "-1");
-            mainContent.focus();
-          }
+          mainContent.setAttribute("tabindex", "-1");
+          mainContent.focus();
         }
-      } catch (err) {
-        console.error(err);
-        this.renderErrorView(mainContent, viewName);
-      } finally {
-        document.body.classList.remove("view-loading");
       }
-    } else {
-      try {
-        const transition = document.startViewTransition(async () => {
-          await fetchAndUpdate();
-        });
-
-        transition.finished.finally(() => {
-          document.body.classList.remove("view-loading");
-          // MANDATORY Accessibility Routing: Route focus to autofocus element, page header, or container
-          const autofocusEl = mainContent.querySelector("[autofocus]");
-          if (autofocusEl) {
-            autofocusEl.focus();
-          } else {
-            const heading = mainContent.querySelector("h1, h2");
-            if (heading) {
-              heading.setAttribute("tabindex", "-1");
-              heading.focus();
-            } else {
-              mainContent.setAttribute("tabindex", "-1");
-              mainContent.focus();
-            }
-          }
-        });
-      } catch (err) {
-        console.error(err);
-        document.body.classList.remove("view-loading");
-        this.renderErrorView(mainContent, viewName);
-      }
+    } catch (err) {
+      console.error(err);
+      this.hideGlobalLoader();
+      document.body.classList.remove("view-loading");
+      this.renderErrorView(mainContent, viewName);
     }
   }
 
@@ -945,16 +979,281 @@ class AppPortal {
     }, 4000);
   }
 
-  // Unified Request Helper with Authorization Tokens
-  async makeRequest(endpoint, options = {}) {
-    const headers = options.headers || {};
+  showGlobalLoader(message = "Loading...") {
+    const overlay = document.getElementById("global-loading-overlay");
+    const textEl = document.getElementById("global-loading-text");
+    if (textEl) textEl.textContent = message;
+    if (overlay) overlay.style.display = "flex";
+  }
 
-    if (!CONFIG.demoMode && this.user && this.user.token) {
-      headers["Authorization"] = `Bearer ${this.user.token}`;
+  hideGlobalLoader() {
+    const overlay = document.getElementById("global-loading-overlay");
+    if (overlay) overlay.style.display = "none";
+  }
+
+  getCachedData(key) {
+    if (this._memoryCache && this._memoryCache[key]) {
+      return this._memoryCache[key].data;
+    }
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      this._memoryCache[key] = { data: parsed, ts: 0 };
+      return parsed;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  getCacheAgeMs(key) {
+    if (this._memoryCache && this._memoryCache[key] && this._memoryCache[key].ts) {
+      return Date.now() - this._memoryCache[key].ts;
+    }
+    return Infinity;
+  }
+
+  setCachedData(key, value) {
+    this._memoryCache[key] = { data: value, ts: Date.now() };
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      console.warn("Failed to write localStorage cache key (using in-memory cache):", key, e);
+    }
+  }
+
+  getProductsCacheKey() {
+    return `portal_products_cache_${CONFIG.demoMode ? "demo" : CONFIG.portalId}`;
+  }
+
+  getAppsCacheKey() {
+    return `prism_apps_cache_${CONFIG.demoMode ? "demo" : (this.user ? this.user.email : "guest")}`;
+  }
+
+  async loadProductsWithCache({ onData, onLoading, onError } = {}) {
+    const cacheKey = this.getProductsCacheKey();
+    const cached = (this.products && this.products.length > 0)
+      ? this.products
+      : this.getCachedData(cacheKey);
+    const hasCache = Array.isArray(cached) && cached.length > 0;
+
+    if (hasCache) {
+      this.products = cached;
+      if (onData) onData(cached, { fromCache: true });
+    } else if (onLoading) {
+      onLoading();
     }
 
-    options.headers = headers;
-    const response = await fetch(endpoint, options);
+    try {
+      let products = [];
+      if (CONFIG.demoMode) {
+        const res = await fetch("/mock-products.json");
+        const data = await res.json();
+        products = data.products || [];
+      } else {
+        const res = await fetch(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/products`);
+        if (!res.ok) throw new Error("Failed to fetch live products");
+        const data = await res.json();
+        products = data.products || [];
+      }
+
+      this.products = products;
+      this.setCachedData(cacheKey, products);
+      if (onData) onData(products, { fromCache: false });
+      return products;
+    } catch (err) {
+      console.error("Failed loading products:", err);
+      if (!hasCache && onError) onError(err);
+      return hasCache ? cached : [];
+    }
+  }
+
+  async loadAppsWithCache({ onData, onLoading, onError } = {}) {
+    const cacheKey = this.getAppsCacheKey();
+    const demoOverride = CONFIG.demoMode ? this.getCachedData("prism_apps_demo") : null;
+    const cached = demoOverride || ((this.apps && this.apps.length > 0) ? this.apps : this.getCachedData(cacheKey));
+    const hasCache = Array.isArray(cached);
+
+    if (hasCache) {
+      this.apps = cached;
+      if (onData) onData(cached, { fromCache: true });
+    } else if (onLoading) {
+      onLoading();
+    }
+
+    try {
+      let userApps = [];
+      if (CONFIG.demoMode) {
+        if (Array.isArray(demoOverride)) {
+          userApps = demoOverride;
+        } else {
+          const res = await fetch("/mock-apps.json");
+          const data = await res.json();
+          userApps = data.apps || [];
+          this.setCachedData("prism_apps_demo", userApps);
+        }
+      } else if (this.user && this.user.email) {
+        const res = await this.makeRequest(
+          `${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${this.user.email}/apps`,
+        );
+        if (!res.ok) throw new Error("Failed to fetch user applications");
+        const data = await res.json();
+        userApps = data.apps || [];
+      }
+
+      this.apps = userApps;
+      this.setCachedData(cacheKey, userApps);
+      if (onData) onData(userApps, { fromCache: false });
+      return userApps;
+    } catch (err) {
+      console.error("Failed loading user applications:", err);
+      if (!hasCache && onError) onError(err);
+      return hasCache ? cached : [];
+    }
+  }
+
+  // Extensible per-1M token pricing table ($ USD) for AI models
+  setModelPricingTable(pricesMap) {
+    if (pricesMap && typeof pricesMap === "object") {
+      CONFIG.modelPricing = pricesMap;
+      this.setCachedData(`portal_model_pricing_${CONFIG.demoMode ? "demo" : CONFIG.portalId}`, pricesMap);
+    }
+  }
+
+  getModelPricing(modelName) {
+    const customRates = CONFIG.modelPricing || this.getCachedData(`portal_model_pricing_${CONFIG.demoMode ? "demo" : CONFIG.portalId}`) || {};
+    const lower = (modelName || "").toLowerCase();
+
+    const normalizeRate = (r) => ({
+      inputPer1M: r.inputPer1M !== undefined ? Number(r.inputPer1M) : (Number(r.requestPerMillionTokens) || 0),
+      outputPer1M: r.outputPer1M !== undefined ? Number(r.outputPer1M) : (Number(r.responsePerMillionTokens) || 0),
+    });
+
+    if (modelName && customRates[modelName]) {
+      return normalizeRate(customRates[modelName]);
+    }
+    for (const [pattern, rate] of Object.entries(customRates)) {
+      if (pattern !== "default" && lower.includes(pattern.toLowerCase())) {
+        return normalizeRate(rate);
+      }
+    }
+    if (customRates.default) {
+      return normalizeRate(customRates.default);
+    }
+
+    if (lower.includes("opus")) return { inputPer1M: 15.0, outputPer1M: 75.0 };
+    if (lower.includes("sonnet") || lower.includes("claude")) return { inputPer1M: 3.0, outputPer1M: 15.0 };
+    if (lower.includes("haiku")) return { inputPer1M: 0.8, outputPer1M: 4.0 };
+    if (lower.includes("gemini") && lower.includes("pro")) return { inputPer1M: 1.25, outputPer1M: 5.0 };
+    if (lower.includes("gemini") && lower.includes("flash-lite")) return { inputPer1M: 0.075, outputPer1M: 0.3 };
+    if (lower.includes("gemini") && lower.includes("flash")) return { inputPer1M: 0.15, outputPer1M: 0.6 };
+    if (lower.includes("qwen")) return { inputPer1M: 0.4, outputPer1M: 1.2 };
+    if (lower.includes("deepseek")) return { inputPer1M: 0.27, outputPer1M: 1.1 };
+
+    // Default fallback rate
+    return { inputPer1M: 0.5, outputPer1M: 1.5 };
+  }
+
+  estimateModelCost(modelName, promptTokens, responseTokens) {
+    const rate = this.getModelPricing(modelName);
+    const inCost = ((Number(promptTokens) || 0) / 1000000) * rate.inputPer1M;
+    const outCost = ((Number(responseTokens) || 0) / 1000000) * rate.outputPer1M;
+    return inCost + outCost;
+  }
+
+  // Refresh OIDC tokens using stored refresh_token (deduplicated for concurrent requests)
+  async refreshSession() {
+    if (this._refreshPromise) {
+      return this._refreshPromise;
+    }
+
+    this._refreshPromise = (async () => {
+      try {
+        if (CONFIG.demoMode || !this.user || !this.user.refreshToken) {
+          return false;
+        }
+        if (!CONFIG.oidcEndpoint) {
+          await this.discoverOidcEndpoint();
+        }
+        const clientId = await this.getOrRegisterClientId();
+        if (!clientId || !CONFIG.oidcEndpoint) {
+          return false;
+        }
+
+        const params = new URLSearchParams();
+        params.append("grant_type", "refresh_token");
+        params.append("client_id", clientId);
+        params.append("refresh_token", this.user.refreshToken);
+
+        const response = await fetch(`${CONFIG.oidcEndpoint}/token`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: params.toString(),
+        });
+
+        if (!response.ok) {
+          console.warn("OIDC refresh token request failed with status:", response.status);
+          return false;
+        }
+
+        const data = await response.json();
+        const nextToken = data.id_token || data.access_token;
+        if (!nextToken) {
+          return false;
+        }
+
+        const updatedUser = {
+          ...this.user,
+          token: nextToken,
+          refreshToken: data.refresh_token || this.user.refreshToken,
+          expiresAt: Date.now() + (Number(data.expires_in) || 3600) * 1000,
+        };
+
+        this.setUser(updatedUser);
+        localStorage.setItem("portal_live_user", JSON.stringify(updatedUser));
+        console.log("OIDC session refreshed successfully");
+        return true;
+      } catch (err) {
+        console.error("Failed to refresh OIDC session:", err);
+        return false;
+      } finally {
+        this._refreshPromise = null;
+      }
+    })();
+
+    return this._refreshPromise;
+  }
+
+  // Unified Request Helper with Authorization Tokens & automatic refresh
+  async makeRequest(endpoint, options = {}) {
+    if (
+      !CONFIG.demoMode &&
+      this.user &&
+      this.user.refreshToken &&
+      this.user.expiresAt &&
+      Date.now() > this.user.expiresAt - 60000
+    ) {
+      await this.refreshSession();
+    }
+
+    const buildOpts = () => {
+      const headers = Object.assign({}, options.headers || {});
+      if (!CONFIG.demoMode && this.user && this.user.token) {
+        headers["Authorization"] = `Bearer ${this.user.token}`;
+      }
+      return Object.assign({}, options, { headers });
+    };
+
+    let response = await fetch(endpoint, buildOpts());
+
+    if (response.status === 401 && !CONFIG.demoMode && this.user && this.user.refreshToken) {
+      const refreshed = await this.refreshSession();
+      if (refreshed) {
+        response = await fetch(endpoint, buildOpts());
+      }
+    }
 
     if (response.status === 401) {
       // Session expired or token invalid

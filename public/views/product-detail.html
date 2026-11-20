@@ -1,9 +1,15 @@
 <div class="detail-container">
-  <!-- Back button -->
-  <button class="btn btn-secondary btn-sm" onclick="app.navigate('catalog')" style="margin-bottom: 2rem;">
-    <i data-lucide="arrow-left" style="width:1rem; height:1rem;"></i>
-    Back to Catalog
-  </button>
+  <!-- Back & Admin Edit bar -->
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2rem; gap: 1rem;">
+    <button class="btn btn-secondary btn-sm" onclick="app.navigate('catalog')">
+      <i data-lucide="arrow-left" style="width:1rem; height:1rem;"></i>
+      Back to Catalog
+    </button>
+    <button class="btn btn-secondary btn-sm" id="btn-detail-admin-edit" style="display:none;">
+      <i data-lucide="pencil" style="width:1rem; height:1rem;"></i>
+      Edit in Admin
+    </button>
+  </div>
 
   <div class="detail-layout">
     <!-- Left Column: Details -->
@@ -97,20 +103,20 @@
               </select>
             </div>
 
-            <h4 style="font-size:0.875rem; margin-bottom:0.75rem;">Add to Application</h4>
+            <h4 style="font-size:0.875rem; margin-bottom:0.75rem;">Add to Subscription</h4>
             <div class="auth-form-group" style="margin-bottom:1rem;">
               <select id="sub-app-select" class="input-control select-control" style="width:100%; font-size:0.9rem;" disabled>
-                <option value="">-- Choose Application --</option>
+                <option value="">-- Choose Subscription --</option>
               </select>
             </div>
             <button class="btn btn-primary" id="btn-subscribe-to-app" onclick="subscribeProductToSelectedApp()" style="width:100%; font-size:0.9rem;" disabled>
-              Add Subscription
+              Add to Subscription
             </button>
             
             <div class="auth-divider">or</div>
             
             <button class="btn btn-secondary" id="btn-create-app-sub" onclick="openCreateAppSubModal()" style="width:100%; font-size:0.9rem;" disabled>
-              Create New App
+              Create New Subscription
             </button>
           </div>
         </div>
@@ -431,18 +437,18 @@ body.light .mcp-tool-details {
 }
 </style>
 
-<!-- Create App Dialog in Product Detail -->
+<!-- Create Subscription Dialog in Product Detail -->
 <dialog id="create-app-sub-dialog" class="auth-dialog" style="max-width:450px;">
   <div class="auth-header">
-    <h3>Create App & Subscribe</h3>
+    <h3>Create Subscription</h3>
     <button class="close-btn" onclick="closeCreateAppSubModal()">
       <i data-lucide="x" style="width:1.5rem; height:1.5rem;"></i>
     </button>
   </div>
   <form id="create-app-sub-form" onsubmit="handleCreateAppSubSubmit(event)">
     <div class="auth-form-group">
-      <label for="sub-new-app-name">Application Name</label>
-      <input type="text" id="sub-new-app-name" class="input-control" placeholder="My New Application" required autocomplete="off">
+      <label for="sub-new-app-name">Subscription Name</label>
+      <input type="text" id="sub-new-app-name" class="input-control" placeholder="My New Subscription" required autocomplete="off">
     </div>
     <div class="auth-form-group" style="margin-top:1rem;">
       <label>Selected Package</label>
@@ -467,6 +473,16 @@ window.viewInitializers['product-detail'] = async function(productId) {
   if (!productId) {
     app.navigate('catalog');
     return;
+  }
+
+  const editBtn = document.getElementById('btn-detail-admin-edit');
+  if (editBtn) {
+    if (app.user) {
+      editBtn.style.display = 'inline-flex';
+      editBtn.onclick = () => app.navigate(`admin/edit/${encodeURIComponent(productId)}`);
+    } else {
+      editBtn.style.display = 'none';
+    }
   }
   
   await fetchProductDetails(productId);
@@ -1124,7 +1140,7 @@ function onPackageSelectionChanged() {
   syncPricingCardStyles(selectedPackageId);
   
   if (!selectedPackageId) {
-    appSelect.innerHTML = `<option value="">-- Choose Application --</option>`;
+    appSelect.innerHTML = `<option value="">-- Choose Subscription --</option>`;
     appSelect.disabled = true;
     btnSub.disabled = true;
     btnCreateSub.disabled = true;
@@ -1301,7 +1317,7 @@ async function handleCreateAppSubSubmit(event) {
       app.apps.push(newApp);
       localStorage.setItem('prism_apps_demo', JSON.stringify(app.apps));
       
-      app.showToast(`Application "${name}" created and subscribed successfully!`, "success");
+      app.showToast(`Subscription "${name}" created and subscribed successfully!`, "success");
       closeCreateAppSubModal();
       document.getElementById('create-app-sub-form').reset();
       await handleSubscriptionStatusUI(prodId);
@@ -1329,7 +1345,7 @@ async function handleCreateAppSubSubmit(event) {
         throw new Error(errData.error || 'Server rejected app creation');
       }
       
-      app.showToast(`Application "${name}" created and subscribed successfully!`, "success");
+      app.showToast(`Subscription "${name}" created and subscribed successfully!`, "success");
       closeCreateAppSubModal();
       document.getElementById('create-app-sub-form').reset();
       await handleSubscriptionStatusUI(prodId);

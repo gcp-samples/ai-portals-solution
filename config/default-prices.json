@@ -1,0 +1,47 @@
+{
+  "default": {
+    "requestPerMillionTokens": 1.0,
+    "responsePerMillionTokens": 3.0,
+    "cachedRequestPerMillionTokens": 0.25
+  },
+  "gemini-2.5-flash": {
+    "requestPerMillionTokens": 0.10,
+    "responsePerMillionTokens": 0.40,
+    "cachedRequestPerMillionTokens": 0.025
+  },
+  "gemini-2.5-pro": {
+    "requestPerMillionTokens": 1.25,
+    "responsePerMillionTokens": 5.0,
+    "cachedRequestPerMillionTokens": 0.3125
+  },
+  "gemini-3-flash-preview": {
+    "requestPerMillionTokens": 0.15,
+    "responsePerMillionTokens": 0.60,
+    "cachedRequestPerMillionTokens": 0.0375
+  },
+  "claude-sonnet-4-6": {
+    "requestPerMillionTokens": 3.0,
+    "responsePerMillionTokens": 15.0,
+    "cachedRequestPerMillionTokens": 0.30
+  },
+  "claude-opus-4-6": {
+    "requestPerMillionTokens": 15.0,
+    "responsePerMillionTokens": 75.0,
+    "cachedRequestPerMillionTokens": 1.50
+  },
+  "claude-haiku-4-5": {
+    "requestPerMillionTokens": 0.80,
+    "responsePerMillionTokens": 4.0,
+    "cachedRequestPerMillionTokens": 0.08
+  },
+  "qwen3-next-80b-a3b-thinking-maas": {
+    "requestPerMillionTokens": 0.40,
+    "responsePerMillionTokens": 1.20,
+    "cachedRequestPerMillionTokens": 0.10
+  },
+  "deepseek-v3.2-maas": {
+    "requestPerMillionTokens": 0.27,
+    "responsePerMillionTokens": 1.10,
+    "cachedRequestPerMillionTokens": 0.07
+  }
+}

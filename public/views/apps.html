@@ -1,22 +1,22 @@
 <div class="apps-container">
   <div class="apps-header">
     <div>
-      <h1 style="font-size:2rem; margin-bottom:0.5rem;">My Apps</h1>
-      <p style="color:var(--text-secondary);">Manage developer credentials, track product subscriptions, and orchestrate client-keys for sandbox integrations.</p>
+      <h1 style="font-size:2rem; margin-bottom:0.5rem;">Subscriptions</h1>
+      <p style="color:var(--text-secondary);">Manage your subscriptions, API credentials, and client keys for integrations.</p>
     </div>
     
     <button class="btn btn-primary" onclick="openCreateAppModal()">
       <i data-lucide="plus" style="width:1.1rem; height:1.1rem;"></i>
-      Create Application
+      Create Subscription
     </button>
   </div>
 
   <div class="apps-layout">
-    <!-- Left Column: Active Applications -->
+    <!-- Left Column: Active Subscriptions -->
     <div class="apps-list-column" id="apps-list-column">
       <div style="text-align:center; padding: 4rem 2rem;" class="panel">
         <div style="border: 3px solid var(--border-color); border-top-color: var(--primary); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin:0 auto 1rem auto;"></div>
-        <p style="color:var(--text-secondary);">Loading applications...</p>
+        <p style="color:var(--text-secondary);">Loading subscriptions...</p>
       </div>
     </div>
 
@@ -35,17 +35,17 @@
         
         <div class="guide-tip">
           <strong>Key Rotation</strong>
-          <p style="font-size:0.825rem; color:var(--text-secondary); margin-top:0.25rem;">To rotate credential keys, delete the current application and re-issue a subscription card. Old credentials will instantly revoke.</p>
+          <p style="font-size:0.825rem; color:var(--text-secondary); margin-top:0.25rem;">To rotate credential keys, delete the current subscription and create a new one. Old credentials will instantly revoke.</p>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Create App Dialog (Modal) -->
+<!-- Create Subscription Dialog (Modal) -->
 <dialog id="create-app-dialog" class="auth-dialog" style="max-width:550px;">
   <div class="auth-header">
-    <h3>Create New Application</h3>
+    <h3>Create New Subscription</h3>
     <button class="close-btn" onclick="closeCreateAppModal()">
       <i data-lucide="x" style="width:1.5rem; height:1.5rem;"></i>
     </button>
@@ -53,7 +53,7 @@
   
   <form id="create-app-form" onsubmit="handleCreateAppSubmit(event)">
     <div class="auth-form-group">
-      <label for="new-app-name">Application Name</label>
+      <label for="new-app-name">Subscription Name</label>
       <input type="text" id="new-app-name" class="input-control" placeholder="Inference Dashboard Client" required autocomplete="off">
     </div>
     
@@ -71,7 +71,7 @@
     
     <div style="margin-top:2rem; display:flex; justify-content:flex-end; gap:1rem;">
       <button type="button" class="btn btn-secondary btn-sm" onclick="closeCreateAppModal()">Cancel</button>
-      <button type="submit" class="btn btn-primary btn-sm">Create Application</button>
+      <button type="submit" class="btn btn-primary btn-sm">Create Subscription</button>
     </div>
   </form>
 </dialog>
@@ -272,73 +272,40 @@
 <script>
 window.viewInitializers['apps'] = async function() {
   console.log("Apps view initialization running...");
-  if (!app.products || app.products.length === 0) {
-    try {
-      let products = [];
-      if (CONFIG.demoMode) {
-        const res = await fetch('/mock-products.json');
-        const data = await res.json();
-        products = data.products || [];
-      } else {
-        const res = await fetch(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/products`);
-        if (res.ok) {
-          const data = await res.json();
-          products = data.products || [];
-        }
+  // Load products in background without blocking cached apps rendering
+  app.loadProductsWithCache({
+    onData: () => {
+      if (Array.isArray(app.apps) && app.apps.length > 0) {
+        renderUserApplications();
       }
-      app.products = products;
-    } catch (err) {
-      console.error("Failed to load products for apps view", err);
     }
-  }
+  });
   await loadUserApplications();
 };
 
 async function loadUserApplications() {
-  const cacheKey = `prism_apps_cache_${app.user ? app.user.email : 'guest'}`;
-  const cachedAppsRaw = localStorage.getItem(cacheKey);
-  let hasCache = false;
-
-  if (cachedAppsRaw) {
-    try {
-      const cachedApps = JSON.parse(cachedAppsRaw);
-      app.apps = cachedApps;
-      renderUserApplications();
-      hasCache = true;
-    } catch (e) {
-      console.error("Error parsing cached apps data", e);
-    }
-  }
-
-  try {
-    let userApps = [];
-    if (CONFIG.demoMode) {
-      const cached = localStorage.getItem('prism_apps_demo');
-      if (cached) {
-        const data = JSON.parse(cached);
-        userApps = Array.isArray(data) ? data : (data.apps || []);
-      } else {
-        const res = await fetch('/mock-apps.json');
-        const data = await res.json();
-        userApps = data.apps || [];
-        localStorage.setItem('prism_apps_demo', JSON.stringify(userApps));
+  const container = document.getElementById('apps-list-column');
+  await app.loadAppsWithCache({
+    onLoading: () => {
+      app.showGlobalLoader("Loading your subscriptions...");
+      if (container) {
+        container.innerHTML = `
+          <div class="panel portal-loader-card">
+            <div class="portal-spinner"></div>
+            <p style="color:var(--text-secondary); font-weight:500;">Loading your subscriptions...</p>
+          </div>
+        `;
       }
-    } else {
-      const res = await app.makeRequest(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/users/${app.user.email}/apps`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      userApps = data.apps || [];
+    },
+    onData: () => {
+      app.hideGlobalLoader();
+      renderUserApplications();
+    },
+    onError: () => {
+      app.hideGlobalLoader();
+      app.showToast("Failed to load subscriptions", "error");
     }
-    
-    localStorage.setItem(cacheKey, JSON.stringify(userApps));
-    app.apps = userApps;
-    renderUserApplications();
-  } catch (err) {
-    console.error(err);
-    if (!hasCache) {
-      app.showToast("Failed to load user applications", "error");
-    }
-  }
+  });
 }
 
 function renderUserApplications() {
@@ -349,9 +316,9 @@ function renderUserApplications() {
     container.innerHTML = `
       <div class="panel" style="text-align:center; padding: 4rem 2rem;">
         <i data-lucide="layers-3" style="width:3rem; height:3rem; color:var(--text-muted); margin-bottom:1.5rem;"></i>
-        <h2>No Applications Registered</h2>
-        <p style="color:var(--text-secondary); margin: 0.75rem 0 1.5rem 0; font-size:0.95rem;">You do not have any registered API credentials. Create an application card to subscribe to packages and generate authorization keys.</p>
-        <button class="btn btn-primary btn-sm" onclick="openCreateAppModal()">Create First App</button>
+        <h2>No Subscriptions Registered</h2>
+        <p style="color:var(--text-secondary); margin: 0.75rem 0 1.5rem 0; font-size:0.95rem;">You do not have any registered API credentials. Create a subscription to access packages and generate authorization keys.</p>
+        <button class="btn btn-primary btn-sm" onclick="openCreateAppModal()">Create First Subscription</button>
       </div>
     `;
     lucide.createIcons();
@@ -431,7 +398,7 @@ function renderUserApplications() {
           
           <button class="btn btn-secondary btn-danger btn-sm" onclick="deleteApplication('${appEntry.id}', '${appEntry.name}')">
             <i data-lucide="trash-2" style="width:1rem; height:1rem;"></i>
-            Delete App
+            Delete Subscription
           </button>
         </div>
         
@@ -583,7 +550,7 @@ async function handleCreateAppSubmit(event) {
       app.apps.push(newApp);
       localStorage.setItem('prism_apps_demo', JSON.stringify(app.apps));
       
-      app.showToast("Application created successfully!", "success");
+      app.showToast("Subscription created successfully!", "success");
       closeCreateAppModal();
       document.getElementById('create-app-form').reset();
       renderUserApplications();
@@ -609,7 +576,7 @@ async function handleCreateAppSubmit(event) {
         throw new Error(errData.error || 'Server rejected app creation');
       }
       
-      app.showToast("Application created successfully!", "success");
+      app.showToast("Subscription created successfully!", "success");
       closeCreateAppModal();
       document.getElementById('create-app-form').reset();
       await loadUserApplications();
@@ -621,17 +588,17 @@ async function handleCreateAppSubmit(event) {
 }
 
 async function deleteApplication(appId, appName) {
-  if (!confirm(`Are you sure you want to delete "${appName}"? This action is permanent and will instantly revoke all credentials.`)) {
+  if (!confirm(`Are you sure you want to delete subscription "${appName}"? This action is permanent and will instantly revoke all credentials.`)) {
     return;
   }
   
   try {
-    app.showToast("Deleting application...", "info");
+    app.showToast("Deleting subscription...", "info");
     
     if (CONFIG.demoMode) {
       app.apps = app.apps.filter(a => a.id !== appId);
       localStorage.setItem('prism_apps_demo', JSON.stringify(app.apps));
-      app.showToast("Application deleted successfully", "success");
+      app.showToast("Subscription deleted successfully", "success");
       renderUserApplications();
     } else {
       // Find app details
@@ -644,12 +611,12 @@ async function deleteApplication(appId, appName) {
       });
       if (!res.ok) throw new Error();
       
-      app.showToast("Application deleted successfully", "success");
+      app.showToast("Subscription deleted successfully", "success");
       await loadUserApplications();
     }
   } catch (err) {
     console.error(err);
-    app.showToast("Failed to delete application", "error");
+    app.showToast("Failed to delete subscription", "error");
   }
 }
 

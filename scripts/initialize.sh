@@ -184,7 +184,7 @@ if ! gcloud iam service-accounts describe "portal-service@$GOOGLE_CLOUD_PROJECT.
       --role="roles/apigee.developerAdmin" >/dev/null
   gcloud projects add-iam-policy-binding "$GOOGLE_CLOUD_PROJECT" \
       --member="serviceAccount:portal-service@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" \
-      --role="roles/apihub.viewer" >/dev/null
+      --role="roles/apihub.editor" >/dev/null
   gcloud iam service-accounts add-iam-policy-binding \
     "portal-service@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" \
     --member="user:$(gcloud config get-value account 2>/dev/null)" \
@@ -212,4 +212,4 @@ cat << EOF > ./public/CONFIG.local.json
 }
 EOF
 
-source ./sh/reinitialize.sh
+source ./scripts/reinitialize.sh

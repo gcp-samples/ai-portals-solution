@@ -49,13 +49,13 @@ This script will:
 
 Enter your values by running this script:
 ```sh
-source ./sh/initialize.sh
+source ./scripts/initialize.sh
 ```
 
 **If you've already initialized,** run this script to just load the variables:
 
 ```sh
-source ./sh/reinitialize.sh
+source ./scripts/reinitialize.sh
 ```
 
 ## Connect Apigee

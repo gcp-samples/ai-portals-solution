@@ -317,30 +317,34 @@ window.viewInitializers['catalog'] = async function() {
 };
 
 async function loadCatalogProducts() {
-  try {
-    let products = [];
-    if (CONFIG.demoMode) {
-      const res = await fetch('/mock-products.json');
-      const data = await res.json();
-      products = data.products || [];
-    } else {
-      const res = await fetch(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/products`);
-      if (!res.ok) throw new Error('Failed to fetch live products');
-      const data = await res.json();
-      products = data.products || [];
+  const container = document.getElementById('catalog-results');
+  await app.loadProductsWithCache({
+    onLoading: () => {
+      app.showGlobalLoader("Loading API catalog...");
+      if (container) {
+        container.innerHTML = Array.from({ length: 6 }, () => `
+          <div class="panel skeleton-card">
+            <div class="skeleton-line short"></div>
+            <div class="skeleton-line title"></div>
+            <div class="skeleton-line full"></div>
+            <div class="skeleton-line full"></div>
+          </div>
+        `).join('');
+      }
+    },
+    onData: () => {
+      app.hideGlobalLoader();
+      buildCategoryChips();
+      filterCatalogProducts();
+    },
+    onError: () => {
+      app.hideGlobalLoader();
+      app.showToast("Failed to load catalog products", "error");
+      if (container) {
+        container.innerHTML = `<div class="panel" style="grid-column:1/-1; text-align:center; padding:3rem;">Failed to load catalog products.</div>`;
+      }
     }
-    
-    app.products = products;
-    
-    // Dynamically build category chips
-    buildCategoryChips();
-    
-    // Run filter
-    filterCatalogProducts();
-  } catch (err) {
-    console.error("Failed loading products", err);
-    app.showToast("Failed to load catalog products", "error");
-  }
+  });
 }
 
 function buildCategoryChips() {
@@ -473,9 +477,12 @@ function renderCatalogProducts(products) {
           <div class="tag-list">
             ${tagsHtml}
           </div>
-          <div style="color:var(--text-muted); display:flex; align-items:center; gap:0.25rem;">
-            <span>Details</span>
-            <i data-lucide="chevron-right" style="width:1rem; height:1rem;"></i>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            ${app.user ? `<button type="button" class="btn btn-secondary btn-sm" style="padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="event.stopPropagation(); app.navigate('admin/edit/${encodeURIComponent(p.productId || p.id)}')" title="Edit API Hub metadata"><i data-lucide="pencil" style="width:0.8rem; height:0.8rem;"></i> Edit</button>` : ''}
+            <div style="color:var(--text-muted); display:flex; align-items:center; gap:0.25rem;">
+              <span>Details</span>
+              <i data-lucide="chevron-right" style="width:1rem; height:1rem;"></i>
+            </div>
           </div>
         </div>
       </div>

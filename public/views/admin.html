@@ -1,0 +1,1464 @@
+<div class="admin-shell">
+  <!-- Side Navigation Menu -->
+  <aside class="admin-sidebar panel" aria-label="Admin sections">
+    <div class="admin-sidebar-header">
+      <div class="admin-sidebar-badge">
+        <i data-lucide="shield-check" style="width: 1.1rem; height: 1.1rem"></i>
+        <span>Portal Admin</span>
+      </div>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem">
+        Manage API Hub, AI models &amp; global analytics
+      </p>
+    </div>
+
+    <nav class="admin-nav">
+      <button class="admin-nav-item active" id="nav-admin-catalogue" onclick="switchAdminSection('catalogue')">
+        <i data-lucide="book-open" style="width: 1.1rem; height: 1.1rem"></i>
+        <span>Manage Catalogue</span>
+      </button>
+      <button class="admin-nav-item" id="nav-admin-models" onclick="switchAdminSection('models')">
+        <i data-lucide="cpu" style="width: 1.1rem; height: 1.1rem"></i>
+        <span>Manage Models</span>
+      </button>
+      <button class="admin-nav-item" id="nav-admin-analytics" onclick="switchAdminSection('analytics')">
+        <i data-lucide="bar-chart-3" style="width: 1.1rem; height: 1.1rem"></i>
+        <span>Global Analytics</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Full-Width Section Content -->
+  <div class="admin-main">
+    <!-- SECTION 1: MANAGE CATALOGUE -->
+    <section id="admin-section-catalogue" class="admin-section">
+      <div class="admin-section-header">
+        <div>
+          <h1 style="font-size: 1.85rem; margin-bottom: 0.35rem">Manage Catalogue</h1>
+          <p style="color: var(--text-secondary)">
+            Edit API Hub display names, descriptions, and deployment states across all catalog entries.
+          </p>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="fetchAdminApis(true)" title="Refresh from API Hub">
+          <i data-lucide="refresh-cw" style="width: 1rem; height: 1rem"></i>
+          Refresh
+        </button>
+      </div>
+
+      <div class="admin-toolbar panel">
+        <div class="search-box" style="flex: 1">
+          <i data-lucide="search" class="search-icon"></i>
+          <input
+            type="text"
+            id="admin-api-search"
+            class="input-control"
+            placeholder="Search API Hub entries by name, ID, or description..."
+            oninput="renderAdminApisList()"
+            style="padding-left: 2.75rem"
+          />
+        </div>
+        <div class="filter-group" style="display: flex; align-items: center; gap: 0.5rem">
+          <label for="admin-state-filter" style="font-size: 0.875rem; color: var(--text-secondary)">State:</label>
+          <select id="admin-state-filter" class="input-control select-control" onchange="renderAdminApisList()">
+            <option value="all">All States</option>
+            <option value="active">Active</option>
+            <option value="production">Production</option>
+            <option value="staging">Staging</option>
+            <option value="development">Development</option>
+            <option value="deprecated">Deprecated</option>
+            <option value="retired">Retired</option>
+            <option value="unassigned">Unassigned</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel admin-table-panel">
+        <div id="admin-apis-loading" style="text-align: center; padding: 3rem; color: var(--text-muted)">
+          Loading API Hub entries...
+        </div>
+        <table class="analytics-table admin-full-table" id="admin-apis-table" style="display: none">
+          <thead>
+            <tr>
+              <th>Display Name</th>
+              <th>Description</th>
+              <th>Deployment State</th>
+              <th>Linked Products</th>
+              <th style="text-align: right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="admin-apis-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 2: MANAGE MODELS (AI PROVIDERS & KVM PRICE LIST) -->
+    <section id="admin-section-models" class="admin-section" style="display: none">
+      <div class="admin-section-header">
+        <div>
+          <h1 style="font-size: 1.85rem; margin-bottom: 0.35rem">Manage Models</h1>
+          <p style="color: var(--text-secondary)">
+            Maintain the LLM price list per model (saved to Apigee KVM <code>AI-Config / PriceList</code> for proxy cost tracking).
+          </p>
+        </div>
+        <div style="display: flex; gap: 0.65rem; flex-wrap: wrap">
+          <button class="btn btn-secondary btn-sm" onclick="loadDefaultModelPrices()">
+            <i data-lucide="rotate-ccw" style="width: 1rem; height: 1rem"></i>
+            Load Defaults
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="openRawPricesModal()">
+            <i data-lucide="code" style="width: 1rem; height: 1rem"></i>
+            Raw JSON
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="openModelPriceModal()">
+            <i data-lucide="plus" style="width: 1rem; height: 1rem"></i>
+            Add Model
+          </button>
+          <button class="btn btn-primary btn-sm" id="btn-save-prices-kvm" onclick="saveModelPricesToKvm()">
+            <i data-lucide="cloud-upload" style="width: 1rem; height: 1rem"></i>
+            Save to KVM
+          </button>
+        </div>
+      </div>
+
+      <div class="admin-toolbar panel" style="flex-wrap: wrap">
+        <div class="search-box" style="flex: 1; min-width: 220px">
+          <i data-lucide="search" class="search-icon"></i>
+          <input
+            type="text"
+            id="admin-model-search"
+            class="input-control"
+            placeholder="Filter models by name..."
+            oninput="renderModelPricesTable()"
+            style="padding-left: 2.75rem"
+          />
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem">
+          <span id="kvm-price-status-badge" class="state-badge">Checking KVM...</span>
+          <span id="admin-model-count" style="color: var(--text-secondary)">0 models</span>
+        </div>
+      </div>
+
+      <div class="panel admin-table-panel">
+        <div id="admin-models-loading" style="text-align: center; padding: 3rem; color: var(--text-muted)">
+          Loading LLM price list...
+        </div>
+        <table class="analytics-table admin-full-table" id="admin-models-table" style="display: none">
+          <thead>
+            <tr>
+              <th>Model Identifier</th>
+              <th>Input ($ / 1M tokens)</th>
+              <th>Output ($ / 1M tokens)</th>
+              <th>Cached Input ($ / 1M tokens)</th>
+              <th style="text-align: right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="admin-models-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 3: GLOBAL ANALYTICS -->
+    <section id="admin-section-analytics" class="admin-section" style="display: none">
+      <div class="admin-section-header">
+        <div>
+          <h1 style="font-size: 1.85rem; margin-bottom: 0.35rem">Global Analytics</h1>
+          <p style="color: var(--text-secondary)">
+            Inspect organization-wide model, token, latency, and cost usage across all users and products.
+          </p>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="fetchGlobalAnalytics(true)">
+          <i data-lucide="refresh-cw" style="width: 1rem; height: 1rem"></i>
+          Reload
+        </button>
+      </div>
+
+      <div class="admin-toolbar panel" style="flex-wrap: wrap">
+        <div class="filter-group" style="display: flex; align-items: center; gap: 0.5rem">
+          <label for="admin-filter-timeframe" style="font-size: 0.875rem; color: var(--text-secondary)">Timeframe:</label>
+          <select id="admin-filter-timeframe" class="input-control select-control" onchange="onGlobalAnalyticsQueryChange()">
+            <option value="month" selected>Current Month</option>
+            <option value="week">Last 7 Days (Week)</option>
+            <option value="day">Last 24 Hours (Day)</option>
+            <option value="year">Current Year</option>
+            <option value="all">All Time</option>
+          </select>
+        </div>
+
+        <div class="filter-group" style="display: flex; align-items: center; gap: 0.5rem">
+          <label for="admin-filter-model" style="font-size: 0.875rem; color: var(--text-secondary)">Model:</label>
+          <select id="admin-filter-model" class="input-control select-control" onchange="renderGlobalAnalytics()">
+            <option value="all">All Models</option>
+          </select>
+        </div>
+
+        <div class="filter-group" style="display: flex; align-items: center; gap: 0.5rem">
+          <label for="admin-filter-user" style="font-size: 0.875rem; color: var(--text-secondary)">User:</label>
+          <select id="admin-filter-user" class="input-control select-control" onchange="renderGlobalAnalytics()">
+            <option value="all">All Users</option>
+          </select>
+        </div>
+
+        <div class="filter-group" style="display: flex; align-items: center; gap: 0.5rem">
+          <label for="admin-filter-cost" style="font-size: 0.875rem; color: var(--text-secondary)">Min Cost:</label>
+          <select id="admin-filter-cost" class="input-control select-control" onchange="renderGlobalAnalytics()">
+            <option value="0">All Costs</option>
+            <option value="0.01">&ge; $0.01</option>
+            <option value="0.10">&ge; $0.10</option>
+            <option value="1.00">&ge; $1.00</option>
+            <option value="10.00">&ge; $10.00</option>
+          </select>
+        </div>
+
+        <div class="filter-group" style="display: flex; align-items: center; gap: 0.5rem">
+          <label for="admin-analytics-view" style="font-size: 0.875rem; color: var(--text-secondary)">View By:</label>
+          <select id="admin-analytics-view" class="input-control select-control" onchange="renderGlobalAnalytics()">
+            <option value="user_model" selected>Model &amp; Cost per User</option>
+            <option value="model">By Model</option>
+            <option value="user">By User</option>
+            <option value="product">By API Product</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="admin-analytics-loading" class="panel" style="text-align: center; padding: 4rem 2rem">
+        <p style="color: var(--text-secondary)">Loading global analytics across all users and models...</p>
+      </div>
+
+      <div id="admin-analytics-content" style="display: none">
+        <div class="kpi-grid" style="margin-bottom: 2rem">
+          <div class="kpi-card panel">
+            <div class="kpi-icon-box" style="background: rgba(99, 102, 241, 0.15); color: #6366f1">
+              <i data-lucide="activity" style="width: 1.5rem; height: 1.5rem"></i>
+            </div>
+            <div>
+              <span class="kpi-label">Global Requests</span>
+              <h2 class="kpi-value-text" id="admin-kpi-requests">0</h2>
+            </div>
+          </div>
+
+          <div class="kpi-card panel">
+            <div class="kpi-icon-box" style="background: rgba(16, 185, 129, 0.15); color: #10b981">
+              <i data-lucide="cpu" style="width: 1.5rem; height: 1.5rem"></i>
+            </div>
+            <div>
+              <span class="kpi-label">Global LLM Tokens</span>
+              <h2 class="kpi-value-text" id="admin-kpi-tokens">0</h2>
+            </div>
+          </div>
+
+          <div class="kpi-card panel">
+            <div class="kpi-icon-box" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b">
+              <i data-lucide="zap" style="width: 1.5rem; height: 1.5rem"></i>
+            </div>
+            <div>
+              <span class="kpi-label">Global Avg TTFT</span>
+              <h2 class="kpi-value-text" id="admin-kpi-ttft">0 ms</h2>
+            </div>
+          </div>
+
+          <div class="kpi-card panel">
+            <div class="kpi-icon-box" style="background: rgba(236, 72, 153, 0.15); color: #ec4899">
+              <i data-lucide="circle-dollar-sign" style="width: 1.5rem; height: 1.5rem"></i>
+            </div>
+            <div>
+              <span class="kpi-label">Global Est. Cost</span>
+              <h2 class="kpi-value-text" id="admin-kpi-cost">$0.00</h2>
+            </div>
+          </div>
+        </div>
+
+        <div class="charts-layout" style="margin-bottom: 2rem">
+          <div class="panel chart-card">
+            <h3>Global Token Usage by Model</h3>
+            <div class="chart-container-box">
+              <canvas id="admin-chart-models"></canvas>
+            </div>
+          </div>
+
+          <div class="panel chart-card">
+            <h3>Global Token Usage by User</h3>
+            <div class="chart-container-box">
+              <canvas id="admin-chart-users"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel admin-table-panel">
+          <h3 id="admin-breakdown-title" style="margin-bottom: 1rem">Global Usage Breakdown</h3>
+          <table class="analytics-table admin-full-table">
+            <thead>
+              <tr id="admin-breakdown-thead-row">
+                <th id="admin-breakdown-dim-header">Dimension</th>
+                <th>Requests</th>
+                <th>Prompt Tokens</th>
+                <th>Response Tokens</th>
+                <th>Total Tokens</th>
+                <th>Avg TTFT</th>
+                <th>Est. Cost</th>
+              </tr>
+            </thead>
+            <tbody id="admin-analytics-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- MODAL: Edit API Hub Catalogue Metadata -->
+<dialog id="admin-edit-dialog" class="auth-dialog" style="max-width: 560px; width: 92%">
+  <div class="auth-header">
+    <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0">
+      <i data-lucide="pencil" style="width: 1.15rem; height: 1.15rem; color: var(--primary)"></i>
+      Edit Catalogue Entry
+    </h3>
+    <button class="close-btn" onclick="closeAdminEditPanel()" aria-label="Close modal">
+      <i data-lucide="x" style="width: 1.25rem; height: 1.25rem"></i>
+    </button>
+  </div>
+  <form id="admin-edit-form" onsubmit="saveAdminApiMetadata(event)">
+    <input type="hidden" id="edit-api-id" />
+    <input type="hidden" id="edit-deployment-id" />
+
+    <div class="auth-form-group">
+      <label for="edit-api-resource">API Hub Resource ID</label>
+      <input type="text" id="edit-api-resource" class="input-control" disabled style="opacity: 0.7" />
+    </div>
+
+    <div class="auth-form-group">
+      <label for="edit-api-display-name">Display Name</label>
+      <input type="text" id="edit-api-display-name" class="input-control" required placeholder="Enter display name" />
+    </div>
+
+    <div class="auth-form-group">
+      <label for="edit-api-description">Description</label>
+      <textarea
+        id="edit-api-description"
+        class="input-control"
+        rows="4"
+        placeholder="Describe this AI product, capabilities, and usage notes..."
+        style="resize: vertical"
+      ></textarea>
+    </div>
+
+    <div class="auth-form-group">
+      <label for="edit-deployment-state">Deployment State</label>
+      <select id="edit-deployment-state" class="input-control select-control">
+        <option value="active">Active</option>
+        <option value="production">Production</option>
+        <option value="staging">Staging</option>
+        <option value="development">Development</option>
+        <option value="deprecated">Deprecated</option>
+        <option value="retired">Retired</option>
+      </select>
+      <small id="edit-deployment-hint" style="color: var(--text-muted); display: block; margin-top: 0.35rem"></small>
+    </div>
+
+    <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem">
+      <button type="submit" class="btn btn-primary" id="btn-save-admin-api" style="flex: 1">
+        <i data-lucide="save" style="width: 1rem; height: 1rem"></i>
+        Save to API Hub
+      </button>
+      <button type="button" class="btn btn-secondary" onclick="closeAdminEditPanel()">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- MODAL: Add / Edit Model Price -->
+<dialog id="admin-model-price-dialog" class="auth-dialog" style="max-width: 480px; width: 92%">
+  <div class="auth-header">
+    <h3 id="model-price-modal-title" style="margin: 0">Add / Edit Model Price</h3>
+    <button class="close-btn" onclick="document.getElementById('admin-model-price-dialog').close()" aria-label="Close modal">
+      <i data-lucide="x" style="width: 1.25rem; height: 1.25rem"></i>
+    </button>
+  </div>
+  <form onsubmit="saveModelPriceEntry(event)">
+    <div class="auth-form-group">
+      <label for="price-model-name">Model Name (or "default")</label>
+      <input type="text" id="price-model-name" class="input-control" required placeholder="e.g. gemini-2.5-flash" />
+    </div>
+    <div class="auth-form-group">
+      <label for="price-req-per-m">Input / Prompt ($ per 1M tokens)</label>
+      <input type="number" step="any" min="0" id="price-req-per-m" class="input-control" required placeholder="0.10" />
+    </div>
+    <div class="auth-form-group">
+      <label for="price-resp-per-m">Output / Response ($ per 1M tokens)</label>
+      <input type="number" step="any" min="0" id="price-resp-per-m" class="input-control" required placeholder="0.40" />
+    </div>
+    <div class="auth-form-group">
+      <label for="price-cached-per-m">Cached Input ($ per 1M tokens)</label>
+      <input type="number" step="any" min="0" id="price-cached-per-m" class="input-control" placeholder="0.025" />
+    </div>
+    <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem">
+      <button type="submit" class="btn btn-primary" style="flex: 1">Update Price List</button>
+      <button type="button" class="btn btn-secondary" onclick="document.getElementById('admin-model-price-dialog').close()">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- MODAL: Raw PriceList JSON -->
+<dialog id="admin-raw-prices-dialog" class="auth-dialog" style="max-width: 640px; width: 92%">
+  <div class="auth-header">
+    <h3 style="margin: 0">Edit PriceList JSON</h3>
+    <button class="close-btn" onclick="document.getElementById('admin-raw-prices-dialog').close()" aria-label="Close modal">
+      <i data-lucide="x" style="width: 1.25rem; height: 1.25rem"></i>
+    </button>
+  </div>
+  <form onsubmit="applyRawPricesJson(event)">
+    <div class="auth-form-group">
+      <textarea id="raw-prices-textarea" class="input-control" rows="14" style="font-family: monospace; font-size: 0.85rem"></textarea>
+    </div>
+    <div style="display: flex; gap: 0.75rem; margin-top: 1rem">
+      <button type="submit" class="btn btn-primary" style="flex: 1">Apply JSON</button>
+      <button type="button" class="btn btn-secondary" onclick="document.getElementById('admin-raw-prices-dialog').close()">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<style>
+  .admin-shell {
+    max-width: 1440px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 1.75rem;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .admin-shell {
+      grid-template-columns: 1fr;
+    }
+  }
+  .admin-sidebar {
+    padding: 1.25rem;
+    position: sticky;
+    top: 5.5rem;
+  }
+  .admin-sidebar-header {
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .admin-sidebar-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+  }
+  .admin-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .admin-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: all var(--transition-fast);
+  }
+  .admin-nav-item:hover {
+    background: var(--primary-light);
+    color: var(--text-primary);
+  }
+  .admin-nav-item.active {
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+  }
+  .admin-main {
+    min-width: 0;
+    width: 100%;
+  }
+  .admin-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .admin-toolbar {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    width: 100%;
+  }
+  .admin-table-panel {
+    width: 100%;
+    padding: 1.25rem;
+    overflow-x: auto;
+  }
+  .admin-full-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .state-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.65rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: capitalize;
+    background: rgba(99, 102, 241, 0.15);
+    color: #818cf8;
+  }
+  .state-badge.active,
+  .state-badge.production {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+  }
+  .state-badge.staging,
+  .state-badge.development {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+  }
+  .state-badge.deprecated,
+  .state-badge.retired {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+  }
+</style>
+
+<script>
+  var adminApisList = [];
+  var adminModelPrices = {};
+  var adminPricesModified = false;
+  var globalAnalyticsRaw = null;
+  var adminModelChart = null;
+  var adminUserChart = null;
+
+  var DEFAULT_MODEL_PRICES = {
+    "default": { requestPerMillionTokens: 1.0, responsePerMillionTokens: 3.0, cachedRequestPerMillionTokens: 0.25 },
+    "gemini-2.5-flash": { requestPerMillionTokens: 0.10, responsePerMillionTokens: 0.40, cachedRequestPerMillionTokens: 0.025 },
+    "gemini-2.5-pro": { requestPerMillionTokens: 1.25, responsePerMillionTokens: 5.0, cachedRequestPerMillionTokens: 0.3125 },
+    "gemini-3-flash-preview": { requestPerMillionTokens: 0.15, responsePerMillionTokens: 0.60, cachedRequestPerMillionTokens: 0.0375 },
+    "claude-sonnet-4-6": { requestPerMillionTokens: 3.0, responsePerMillionTokens: 15.0, cachedRequestPerMillionTokens: 0.30 },
+    "claude-opus-4-6": { requestPerMillionTokens: 15.0, responsePerMillionTokens: 75.0, cachedRequestPerMillionTokens: 1.50 },
+    "claude-haiku-4-5": { requestPerMillionTokens: 0.80, responsePerMillionTokens: 4.0, cachedRequestPerMillionTokens: 0.08 },
+    "qwen3-next-80b-a3b-thinking-maas": { requestPerMillionTokens: 0.40, responsePerMillionTokens: 1.20, cachedRequestPerMillionTokens: 0.10 },
+    "deepseek-v3.2-maas": { requestPerMillionTokens: 0.27, responsePerMillionTokens: 1.10, cachedRequestPerMillionTokens: 0.07 }
+  };
+
+  window.viewInitializers["admin"] = async function (param) {
+    let editTargetId = null;
+    if (param && param.startsWith("edit/")) {
+      editTargetId = decodeURIComponent(param.slice(5));
+    }
+
+    await fetchAdminApis(false);
+
+    if (editTargetId) {
+      switchAdminSection("catalogue");
+      openAdminEditPanel(editTargetId);
+    } else if (param === "models" || param === "analytics" || param === "catalogue") {
+      switchAdminSection(param);
+    }
+  };
+
+  function switchAdminSection(section) {
+    const sections = ["catalogue", "models", "analytics"];
+    sections.forEach((s) => {
+      const panel = document.getElementById(`admin-section-${s}`);
+      const nav = document.getElementById(`nav-admin-${s}`);
+      if (panel) panel.style.display = s === section ? "block" : "none";
+      if (nav) nav.classList.toggle("active", s === section);
+    });
+
+    if (section === "models" && Object.keys(adminModelPrices).length === 0) {
+      fetchModelPrices(false);
+    }
+    if (section === "analytics" && !globalAnalyticsRaw) {
+      fetchGlobalAnalytics(false);
+    }
+    lucide.createIcons();
+  }
+
+  /* =========================
+     SECTION 1: MANAGE CATALOGUE
+     ========================= */
+  async function fetchAdminApis(forceRefresh) {
+    const loader = document.getElementById("admin-apis-loading");
+    const table = document.getElementById("admin-apis-table");
+    const cacheKey = `portal_admin_apis_cache_${CONFIG.demoMode ? "demo" : CONFIG.portalId}`;
+    const cachedApis = !forceRefresh ? app.getCachedData(cacheKey) : null;
+    const hasCache = Array.isArray(cachedApis);
+
+    if (hasCache) {
+      adminApisList = cachedApis;
+      renderAdminApisList();
+      app.hideGlobalLoader();
+      if (loader) loader.style.display = "none";
+      if (table) table.style.display = "table";
+      if (!forceRefresh && app.getCacheAgeMs(cacheKey) < 30000) return;
+    } else {
+      app.showGlobalLoader("Loading API Hub catalogue...");
+      if (loader) loader.style.display = "block";
+      if (table) table.style.display = "none";
+    }
+
+    try {
+      if (CONFIG.demoMode) {
+        if (!app.products || app.products.length === 0) {
+          await app.loadProductsWithCache();
+        }
+        const overrides = JSON.parse(localStorage.getItem("portal_demo_apihub_overrides") || "{}");
+        adminApisList = (app.products || []).map((p) => {
+          const ov = overrides[p.id] || {};
+          return {
+            id: p.id,
+            name: `projects/demo/locations/europe-west1/apis/${p.id}`,
+            displayName: ov.displayName !== undefined ? ov.displayName : p.displayName || p.name,
+            description: ov.description !== undefined ? ov.description : p.displayDescription || "",
+            deploymentState: ov.deploymentState || "active",
+            deployment: { id: `dep-${p.id}`, state: ov.deploymentState || "active" },
+            linkedProducts: (p.packages || []).map((pkg) => pkg.packageId),
+          };
+        });
+      } else {
+        const res = await app.makeRequest(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/admin/apis`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        adminApisList = Array.isArray(data.apis) ? data.apis : [];
+      }
+
+      app.setCachedData(cacheKey, adminApisList);
+      renderAdminApisList();
+      app.hideGlobalLoader();
+      if (loader) loader.style.display = "none";
+      if (table) table.style.display = "table";
+    } catch (err) {
+      console.error("Failed to fetch admin APIs:", err);
+      app.hideGlobalLoader();
+      if (!hasCache && loader) {
+        loader.innerHTML = `<span style="color:var(--danger);">Failed to load API Hub entries: ${err.message}</span>`;
+      }
+    }
+  }
+
+  function renderAdminApisList() {
+    const tbody = document.getElementById("admin-apis-tbody");
+    if (!tbody) return;
+
+    const query = (document.getElementById("admin-api-search")?.value || "").toLowerCase().trim();
+    const stateFilter = document.getElementById("admin-state-filter")?.value || "all";
+
+    const filtered = adminApisList.filter((item) => {
+      const state = (item.deploymentState || "unassigned").toLowerCase();
+      if (stateFilter !== "all" && state !== stateFilter) return false;
+      if (!query) return true;
+      return (
+        (item.displayName || "").toLowerCase().includes(query) ||
+        (item.id || "").toLowerCase().includes(query) ||
+        (item.description || "").toLowerCase().includes(query)
+      );
+    });
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">No API Hub entries match your filter.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered
+      .map((item) => {
+        const state = (item.deploymentState || "unassigned").toLowerCase();
+        const desc = item.description
+          ? item.description.length > 110
+            ? item.description.slice(0, 110) + "..."
+            : item.description
+          : '<span style="color:var(--text-muted); font-style:italic;">No description</span>';
+        const linkedCount = (item.linkedProducts || []).length;
+        return `
+        <tr>
+          <td>
+            <div style="font-weight:600;">${item.displayName || item.id}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">${item.id}</div>
+          </td>
+          <td style="font-size:0.875rem; color:var(--text-secondary);">${desc}</td>
+          <td><span class="state-badge ${state}">${item.deploymentState || "unassigned"}</span></td>
+          <td>${linkedCount > 0 ? `${linkedCount} product${linkedCount > 1 ? "s" : ""}` : '<span style="color:var(--text-muted);">None</span>'}</td>
+          <td style="text-align:right;">
+            <button class="btn btn-secondary btn-sm" onclick="openAdminEditPanel('${item.id}')">
+              <i data-lucide="pencil" style="width:0.85rem; height:0.85rem;"></i>
+              Edit
+            </button>
+          </td>
+        </tr>
+      `;
+      })
+      .join("");
+
+    lucide.createIcons();
+  }
+
+  function openAdminEditPanel(apiId) {
+    const item = adminApisList.find((a) => a.id === apiId);
+    if (!item) {
+      app.showToast(`API Hub entry '${apiId}' not found`, "warning");
+      return;
+    }
+
+    document.getElementById("edit-api-id").value = item.id;
+    document.getElementById("edit-api-resource").value = item.name || item.id;
+    document.getElementById("edit-api-display-name").value = item.displayName || "";
+    document.getElementById("edit-api-description").value = item.description || "";
+
+    const depId = item.deployment ? item.deployment.id : "";
+    document.getElementById("edit-deployment-id").value = depId;
+
+    const stateSelect = document.getElementById("edit-deployment-state");
+    const stateVal = (item.deploymentState || "active").toLowerCase();
+    if (!Array.from(stateSelect.options).some((o) => o.value === stateVal)) {
+      const opt = document.createElement("option");
+      opt.value = stateVal;
+      opt.textContent = item.deploymentState || stateVal;
+      stateSelect.appendChild(opt);
+    }
+    stateSelect.value = stateVal;
+    stateSelect.disabled = !depId;
+
+    document.getElementById("edit-deployment-hint").textContent = depId
+      ? `Linked deployment: ${depId}`
+      : "No API Hub deployment is currently linked to this API version.";
+
+    const dialog = document.getElementById("admin-edit-dialog");
+    if (dialog && typeof dialog.showModal === "function") {
+      dialog.showModal();
+    }
+    lucide.createIcons();
+  }
+
+  function closeAdminEditPanel() {
+    const dialog = document.getElementById("admin-edit-dialog");
+    if (dialog && dialog.open) dialog.close();
+  }
+
+  async function saveAdminApiMetadata(event) {
+    event.preventDefault();
+    const apiId = document.getElementById("edit-api-id").value;
+    const displayName = document.getElementById("edit-api-display-name").value.trim();
+    const description = document.getElementById("edit-api-description").value.trim();
+    const deploymentId = document.getElementById("edit-deployment-id").value;
+    const deploymentState = document.getElementById("edit-deployment-state").value;
+
+    const saveBtn = document.getElementById("btn-save-admin-api");
+    saveBtn.disabled = true;
+
+    try {
+      if (CONFIG.demoMode) {
+        const overrides = JSON.parse(localStorage.getItem("portal_demo_apihub_overrides") || "{}");
+        overrides[apiId] = { displayName, description, deploymentState };
+        localStorage.setItem("portal_demo_apihub_overrides", JSON.stringify(overrides));
+        const prod = (app.products || []).find((p) => p.id === apiId);
+        if (prod) {
+          prod.displayName = displayName;
+          prod.displayDescription = description;
+        }
+      } else {
+        const payload = { displayName, description };
+        if (deploymentId) {
+          payload.deploymentId = deploymentId;
+          payload.deploymentState = deploymentState;
+        }
+        const res = await app.makeRequest(
+          `${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/admin/apis/${encodeURIComponent(apiId)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          },
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
+      }
+
+      const target = adminApisList.find((a) => a.id === apiId);
+      if (target) {
+        target.displayName = displayName;
+        target.description = description;
+        if (deploymentId) target.deploymentState = deploymentState;
+      }
+
+      app.setCachedData(`portal_admin_apis_cache_${CONFIG.demoMode ? "demo" : CONFIG.portalId}`, adminApisList);
+      renderAdminApisList();
+      closeAdminEditPanel();
+      app.showToast("API Hub metadata saved!", "success");
+    } catch (err) {
+      console.error("Failed to save API Hub metadata:", err);
+      app.showToast("Save failed: " + err.message, "error");
+    } finally {
+      saveBtn.disabled = false;
+    }
+  }
+
+  /* =========================
+     SECTION 2: MANAGE MODELS (KVM PRICE LIST)
+     ========================= */
+  async function fetchModelPrices(forceRefresh) {
+    const loader = document.getElementById("admin-models-loading");
+    const table = document.getElementById("admin-models-table");
+    const badge = document.getElementById("kvm-price-status-badge");
+    const cacheKey = `portal_admin_prices_cache_${CONFIG.demoMode ? "demo" : CONFIG.portalId}`;
+    const cached = !forceRefresh ? app.getCachedData(cacheKey) : null;
+
+    if (cached && cached.prices) {
+      adminModelPrices = cached.prices;
+      app.setModelPricingTable(adminModelPrices);
+      if (badge) {
+        badge.textContent = cached.exists ? "KVM: AI-Config / PriceList" : "Using Defaults";
+        badge.className = `state-badge ${cached.exists ? "active" : "staging"}`;
+      }
+      renderModelPricesTable();
+      if (loader) loader.style.display = "none";
+      if (table) table.style.display = "table";
+      if (!forceRefresh && app.getCacheAgeMs(cacheKey) < 30000) return;
+    } else {
+      if (loader) loader.style.display = "block";
+      if (table) table.style.display = "none";
+    }
+
+    try {
+      let result;
+      if (CONFIG.demoMode) {
+        const stored = app.getCachedData("portal_demo_model_prices");
+        result = {
+          exists: Boolean(stored),
+          prices: stored || Object.assign({}, DEFAULT_MODEL_PRICES),
+        };
+      } else {
+        const res = await app.makeRequest(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/admin/prices`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        result = await res.json();
+      }
+
+      adminModelPrices = result.prices || Object.assign({}, DEFAULT_MODEL_PRICES);
+      app.setCachedData(cacheKey, result);
+      app.setModelPricingTable(adminModelPrices);
+
+      if (badge) {
+        badge.textContent = result.exists ? "KVM: AI-Config / PriceList" : "Using Defaults (Unsaved)";
+        badge.className = `state-badge ${result.exists ? "active" : "staging"}`;
+      }
+
+      renderModelPricesTable();
+      if (loader) loader.style.display = "none";
+      if (table) table.style.display = "table";
+    } catch (err) {
+      console.error("Failed to fetch model prices:", err);
+      if (loader && !cached) {
+        loader.innerHTML = `<span style="color:var(--danger);">Failed to load model prices: ${err.message}</span>`;
+      }
+    }
+  }
+
+  function renderModelPricesTable() {
+    const tbody = document.getElementById("admin-models-tbody");
+    const countEl = document.getElementById("admin-model-count");
+    if (!tbody) return;
+
+    const query = (document.getElementById("admin-model-search")?.value || "").toLowerCase().trim();
+    const entries = Object.entries(adminModelPrices)
+      .filter(([name]) => !query || name.toLowerCase().includes(query))
+      .sort(([a], [b]) => (a === "default" ? -1 : b === "default" ? 1 : a.localeCompare(b)));
+
+    if (countEl) countEl.textContent = `${Object.keys(adminModelPrices).length} models`;
+
+    if (entries.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">No models match your search.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = entries
+      .map(([modelName, rate]) => {
+        const req = Number(rate.requestPerMillionTokens || 0).toFixed(4).replace(/\.?0+$/, "");
+        const resp = Number(rate.responsePerMillionTokens || 0).toFixed(4).replace(/\.?0+$/, "");
+        const cached = Number(rate.cachedRequestPerMillionTokens || 0).toFixed(4).replace(/\.?0+$/, "");
+        return `
+        <tr>
+          <td style="font-weight:600;">
+            <code>${modelName}</code>
+            ${modelName === "default" ? '<span class="state-badge" style="margin-left:0.5rem;">Fallback</span>' : ""}
+          </td>
+          <td>$${req}</td>
+          <td>$${resp}</td>
+          <td>$${cached}</td>
+          <td style="text-align:right; white-space:nowrap;">
+            <button class="btn btn-secondary btn-sm" onclick="openModelPriceModal('${modelName}')">
+              <i data-lucide="pencil" style="width:0.85rem; height:0.85rem;"></i>
+              Edit
+            </button>
+            ${
+              modelName !== "default"
+                ? `<button class="btn btn-secondary btn-sm" style="margin-left:0.35rem; color:var(--danger);" onclick="deleteModelPrice('${modelName}')" title="Remove model">
+                    <i data-lucide="trash-2" style="width:0.85rem; height:0.85rem;"></i>
+                  </button>`
+                : ""
+            }
+          </td>
+        </tr>
+      `;
+      })
+      .join("");
+
+    lucide.createIcons();
+  }
+
+  function openModelPriceModal(modelName = "") {
+    const existing = modelName ? adminModelPrices[modelName] : null;
+    document.getElementById("model-price-modal-title").textContent = existing ? `Edit ${modelName}` : "Add Model Price";
+    const nameInput = document.getElementById("price-model-name");
+    nameInput.value = modelName || "";
+    nameInput.disabled = Boolean(existing);
+    document.getElementById("price-req-per-m").value = existing ? existing.requestPerMillionTokens : "";
+    document.getElementById("price-resp-per-m").value = existing ? existing.responsePerMillionTokens : "";
+    document.getElementById("price-cached-per-m").value = existing ? (existing.cachedRequestPerMillionTokens || 0) : "0";
+    document.getElementById("admin-model-price-dialog").showModal();
+  }
+
+  function saveModelPriceEntry(event) {
+    event.preventDefault();
+    const modelName = document.getElementById("price-model-name").value.trim();
+    const req = parseFloat(document.getElementById("price-req-per-m").value) || 0;
+    const resp = parseFloat(document.getElementById("price-resp-per-m").value) || 0;
+    const cached = parseFloat(document.getElementById("price-cached-per-m").value) || 0;
+    if (!modelName) return;
+
+    adminModelPrices[modelName] = {
+      requestPerMillionTokens: req,
+      responsePerMillionTokens: resp,
+      cachedRequestPerMillionTokens: cached,
+    };
+    markPricesModified();
+    renderModelPricesTable();
+    document.getElementById("admin-model-price-dialog").close();
+    app.showToast(`Updated ${modelName} (click "Save to KVM" to persist)`, "info");
+  }
+
+  function deleteModelPrice(modelName) {
+    delete adminModelPrices[modelName];
+    markPricesModified();
+    renderModelPricesTable();
+  }
+
+  function loadDefaultModelPrices() {
+    adminModelPrices = JSON.parse(JSON.stringify(DEFAULT_MODEL_PRICES));
+    markPricesModified();
+    renderModelPricesTable();
+    app.showToast('Loaded default prices (click "Save to KVM" to persist)', "info");
+  }
+
+  function openRawPricesModal() {
+    document.getElementById("raw-prices-textarea").value = JSON.stringify(adminModelPrices, null, 2);
+    document.getElementById("admin-raw-prices-dialog").showModal();
+  }
+
+  function applyRawPricesJson(event) {
+    event.preventDefault();
+    try {
+      const parsed = JSON.parse(document.getElementById("raw-prices-textarea").value);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Root must be a JSON object mapping model names to price objects.");
+      }
+      adminModelPrices = parsed;
+      markPricesModified();
+      renderModelPricesTable();
+      document.getElementById("admin-raw-prices-dialog").close();
+      app.showToast('Applied JSON (click "Save to KVM" to persist)', "info");
+    } catch (e) {
+      app.showToast("Invalid JSON: " + e.message, "error");
+    }
+  }
+
+  function markPricesModified() {
+    adminPricesModified = true;
+    const badge = document.getElementById("kvm-price-status-badge");
+    if (badge) {
+      badge.textContent = "Unsaved Changes";
+      badge.className = "state-badge staging";
+    }
+  }
+
+  async function saveModelPricesToKvm() {
+    const btn = document.getElementById("btn-save-prices-kvm");
+    btn.disabled = true;
+    try {
+      if (CONFIG.demoMode) {
+        app.setCachedData("portal_demo_model_prices", adminModelPrices);
+      } else {
+        const res = await app.makeRequest(`${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/admin/prices`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prices: adminModelPrices }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
+      }
+
+      adminPricesModified = false;
+      app.setModelPricingTable(adminModelPrices);
+      app.setCachedData(`portal_admin_prices_cache_${CONFIG.demoMode ? "demo" : CONFIG.portalId}`, {
+        exists: true,
+        prices: adminModelPrices,
+      });
+
+      const badge = document.getElementById("kvm-price-status-badge");
+      if (badge) {
+        badge.textContent = "KVM: AI-Config / PriceList";
+        badge.className = "state-badge active";
+      }
+      app.showToast("Model prices saved to Apigee KVM (AI-Config / PriceList)!", "success");
+    } catch (err) {
+      console.error("Failed to save prices to KVM:", err);
+      app.showToast("Failed to save to KVM: " + err.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  /* =========================
+     SECTION 3: GLOBAL ANALYTICS
+     ========================= */
+  var knownGlobalModels = new Set();
+  var knownGlobalUsers = new Set();
+
+  function onGlobalAnalyticsQueryChange() {
+    fetchGlobalAnalytics(false);
+  }
+
+  function getTimeframeCutoffMs(tf) {
+    const now = new Date();
+    if (tf === "day") return now.getTime() - 24 * 60 * 60 * 1000;
+    if (tf === "week") return now.getTime() - 7 * 24 * 60 * 60 * 1000;
+    if (tf === "month") return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0).getTime();
+    if (tf === "year") return new Date(now.getFullYear(), 0, 1, 0, 0, 0).getTime();
+    return 0;
+  }
+
+  async function fetchGlobalAnalytics(forceRefresh) {
+    const loader = document.getElementById("admin-analytics-loading");
+    const content = document.getElementById("admin-analytics-content");
+    const timeframe = document.getElementById("admin-filter-timeframe")?.value || "month";
+
+    const cacheKey = `portal_admin_analytics_cache_${CONFIG.demoMode ? "demo" : CONFIG.portalId}_${timeframe}`;
+    const cached = !forceRefresh ? app.getCachedData(cacheKey) : null;
+    const hasCache = Boolean(cached);
+
+    if (hasCache) {
+      globalAnalyticsRaw = cached;
+      populateGlobalAnalyticsFilters();
+      renderGlobalAnalytics();
+      app.hideGlobalLoader();
+      if (loader) loader.style.display = "none";
+      if (content) content.style.display = "block";
+      if (!forceRefresh && app.getCacheAgeMs(cacheKey) < 30000) return;
+    } else if (!globalAnalyticsRaw) {
+      app.showGlobalLoader("Loading global analytics...");
+      if (loader) loader.style.display = "block";
+      if (content) content.style.display = "none";
+    }
+
+    try {
+      if (CONFIG.demoMode) {
+        const res = await fetch("/mock-analytics.json");
+        const mock = await res.json();
+        const modelDims = mock.model?.[0]?.environments?.[0]?.dimensions || [];
+        const demoUsers = ["test@example.com", "alice@example.com"];
+        const umDims = [];
+        modelDims.forEach((d, idx) => {
+          const mName = d.individualNames?.[0];
+          if (!mName || mName === "(not set)") return;
+          const uName = demoUsers[idx % demoUsers.length];
+          umDims.push({
+            individualNames: [uName, mName],
+            metrics: d.metrics || [],
+          });
+        });
+        mock.userModel = [{ environments: [{ dimensions: umDims }] }];
+        mock.user = [
+          {
+            environments: [
+              {
+                dimensions: [
+                  {
+                    individualNames: ["test@example.com"],
+                    metrics: mock.app?.[0]?.environments?.[0]?.dimensions?.[0]?.metrics || [],
+                  },
+                  {
+                    individualNames: ["alice@example.com"],
+                    metrics: mock.app?.[0]?.environments?.[0]?.dimensions?.[1]?.metrics || [],
+                  },
+                ],
+              },
+            ],
+          },
+        ];
+        globalAnalyticsRaw = mock;
+      } else {
+        const params = new URLSearchParams({ timeframe });
+        const res = await app.makeRequest(
+          `${CONFIG.apiHost}/api/portals/${CONFIG.portalId}/admin/analytics?${params.toString()}`,
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        globalAnalyticsRaw = await res.json();
+      }
+
+      app.setCachedData(cacheKey, globalAnalyticsRaw);
+      populateGlobalAnalyticsFilters();
+      renderGlobalAnalytics();
+
+      app.hideGlobalLoader();
+      if (loader) loader.style.display = "none";
+      if (content) content.style.display = "block";
+    } catch (err) {
+      console.error("Failed to fetch global analytics:", err);
+      app.hideGlobalLoader();
+      if (!hasCache && loader) {
+        loader.innerHTML = `<span style="color:var(--danger);">Failed to load global analytics: ${err.message}</span>`;
+      }
+    }
+  }
+
+  function extractUserModelPairs(sectionArr, minTimestampMs = 0) {
+    const pairs = [];
+    if (!Array.isArray(sectionArr)) return pairs;
+    const agg = {};
+    sectionArr.forEach((entry) => {
+      (entry.environments || []).forEach((env) => {
+        (env.dimensions || []).forEach((dim) => {
+          let user = "";
+          let model = "";
+          if (Array.isArray(dim.individualNames) && dim.individualNames.length >= 2) {
+            user = dim.individualNames[0] || "";
+            model = dim.individualNames[1] || "";
+          } else if (dim.name && dim.name.includes(",")) {
+            const parts = dim.name.split(",");
+            user = (parts[0] || "").trim();
+            model = parts.slice(1).join(",").trim();
+          }
+          if (!user || !model || user === "(not set)" || model === "(not set)") return;
+          const key = `${user}|||${model}`;
+          if (!agg[key]) {
+            agg[key] = { user, model, requests: 0, prompts: 0, responses: 0, ttftSum: 0, ttftCount: 0, cost: 0 };
+          }
+          (dim.metrics || []).forEach((m) => {
+            const isMsg = m.name === "sum(message_count)";
+            const isPrompt = m.name === "sum(dc_ai_prompt_token_count)";
+            const isResp = m.name === "sum(dc_ai_response_token_count)";
+            const isTtft = m.name === "avg(dc_ai_time_first_token)";
+            (m.values || []).forEach((v) => {
+              const ts = parseInt(v.timestamp, 10) || 0;
+              if (minTimestampMs > 0 && ts > 0 && ts < minTimestampMs) return;
+              const val = parseFloat(v.value) || 0;
+              if (isMsg) agg[key].requests += Math.round(val);
+              if (isPrompt) agg[key].prompts += Math.round(val);
+              if (isResp) agg[key].responses += Math.round(val);
+              if (isTtft && val > 0) {
+                agg[key].ttftSum += val;
+                agg[key].ttftCount += 1;
+              }
+            });
+          });
+        });
+      });
+    });
+    Object.values(agg).forEach((p) => {
+      p.cost = app.estimateModelCost(p.model, p.prompts, p.responses);
+      if (p.requests > 0 || p.prompts > 0 || p.responses > 0) {
+        pairs.push(p);
+      }
+    });
+    return pairs;
+  }
+
+  function extractDimensionsMap(sectionArr, includeCostByModelName, minTimestampMs = 0) {
+    const map = {};
+    if (!Array.isArray(sectionArr)) return map;
+    sectionArr.forEach((entry) => {
+      (entry.environments || []).forEach((env) => {
+        (env.dimensions || []).forEach((dim) => {
+          const name = dim.individualNames && dim.individualNames[0];
+          if (!name || name === "(not set)") return;
+          if (!map[name]) {
+            map[name] = { requests: 0, prompts: 0, responses: 0, ttftSum: 0, ttftCount: 0, cost: 0 };
+          }
+          (dim.metrics || []).forEach((m) => {
+            const isMsg = m.name === "sum(message_count)";
+            const isPrompt = m.name === "sum(dc_ai_prompt_token_count)";
+            const isResp = m.name === "sum(dc_ai_response_token_count)";
+            const isTtft = m.name === "avg(dc_ai_time_first_token)";
+            (m.values || []).forEach((v) => {
+              const ts = parseInt(v.timestamp, 10) || 0;
+              if (minTimestampMs > 0 && ts > 0 && ts < minTimestampMs) return;
+              const val = parseFloat(v.value) || 0;
+              if (isMsg) map[name].requests += Math.round(val);
+              if (isPrompt) map[name].prompts += Math.round(val);
+              if (isResp) map[name].responses += Math.round(val);
+              if (isTtft && val > 0) {
+                map[name].ttftSum += val;
+                map[name].ttftCount += 1;
+              }
+            });
+          });
+          map[name].cost = app.estimateModelCost(
+            includeCostByModelName ? name : "default",
+            map[name].prompts,
+            map[name].responses,
+          );
+        });
+      });
+    });
+    return map;
+  }
+
+  function populateGlobalAnalyticsFilters() {
+    const modelSel = document.getElementById("admin-filter-model");
+    const userSel = document.getElementById("admin-filter-user");
+    const curModel = modelSel.value || "all";
+    const curUser = userSel.value || "all";
+
+    extractUserModelPairs(globalAnalyticsRaw?.userModel).forEach((p) => {
+      knownGlobalModels.add(p.model);
+      knownGlobalUsers.add(p.user);
+    });
+    Object.keys(extractDimensionsMap(globalAnalyticsRaw?.model, true)).forEach((m) => knownGlobalModels.add(m));
+    Object.keys(extractDimensionsMap(globalAnalyticsRaw?.user, false)).forEach((u) => knownGlobalUsers.add(u));
+
+    const models = Array.from(knownGlobalModels).sort();
+    const users = Array.from(knownGlobalUsers).sort();
+
+    modelSel.innerHTML = `<option value="all">All Models</option>` + models.map((m) => `<option value="${m}">${m}</option>`).join("");
+    userSel.innerHTML = `<option value="all">All Users</option>` + users.map((u) => `<option value="${u}">${u}</option>`).join("");
+
+    if (curModel !== "all" && knownGlobalModels.has(curModel)) modelSel.value = curModel;
+    if (curUser !== "all" && knownGlobalUsers.has(curUser)) userSel.value = curUser;
+  }
+
+  function renderGlobalAnalytics() {
+    if (!globalAnalyticsRaw) return;
+    const timeframe = document.getElementById("admin-filter-timeframe")?.value || "month";
+    const selectedModel = document.getElementById("admin-filter-model").value;
+    const selectedUser = document.getElementById("admin-filter-user").value;
+    const minCost = parseFloat(document.getElementById("admin-filter-cost").value) || 0;
+    const viewBy = document.getElementById("admin-analytics-view").value;
+
+    const cutoffMs = CONFIG.demoMode ? getTimeframeCutoffMs(timeframe) : 0;
+    const allPairs = extractUserModelPairs(globalAnalyticsRaw.userModel, cutoffMs);
+    const hasPairs = allPairs.length > 0;
+
+    let filteredModels = [];
+    let filteredUsers = [];
+    let filteredPairs = [];
+
+    if (hasPairs) {
+      filteredPairs = allPairs.filter(
+        (p) =>
+          (selectedModel === "all" || p.model === selectedModel) &&
+          (selectedUser === "all" || p.user === selectedUser) &&
+          p.cost >= minCost,
+      );
+
+      const mAgg = {};
+      const uAgg = {};
+      filteredPairs.forEach((p) => {
+        if (!mAgg[p.model]) mAgg[p.model] = { requests: 0, prompts: 0, responses: 0, ttftSum: 0, ttftCount: 0, cost: 0 };
+        mAgg[p.model].requests += p.requests;
+        mAgg[p.model].prompts += p.prompts;
+        mAgg[p.model].responses += p.responses;
+        mAgg[p.model].ttftSum += p.ttftSum;
+        mAgg[p.model].ttftCount += p.ttftCount;
+        mAgg[p.model].cost += p.cost;
+
+        if (!uAgg[p.user]) uAgg[p.user] = { requests: 0, prompts: 0, responses: 0, ttftSum: 0, ttftCount: 0, cost: 0 };
+        uAgg[p.user].requests += p.requests;
+        uAgg[p.user].prompts += p.prompts;
+        uAgg[p.user].responses += p.responses;
+        uAgg[p.user].ttftSum += p.ttftSum;
+        uAgg[p.user].ttftCount += p.ttftCount;
+        uAgg[p.user].cost += p.cost;
+      });
+      filteredModels = Object.entries(mAgg);
+      filteredUsers = Object.entries(uAgg);
+    } else {
+      const modelMap = extractDimensionsMap(globalAnalyticsRaw.model, true, cutoffMs);
+      const userMap = extractDimensionsMap(globalAnalyticsRaw.user, false, cutoffMs);
+      filteredModels = Object.entries(modelMap).filter(
+        ([name, s]) => (selectedModel === "all" || name === selectedModel) && s.cost >= minCost,
+      );
+      filteredUsers = Object.entries(userMap).filter(
+        ([name, s]) => (selectedUser === "all" || name === selectedUser) && s.cost >= minCost,
+      );
+    }
+
+    const productMap = extractDimensionsMap(globalAnalyticsRaw.product, false, cutoffMs);
+    const filteredProducts = Object.entries(productMap).filter(([, s]) => s.cost >= minCost);
+
+    const kpiSource = hasPairs
+      ? filteredPairs.map((p) => [p.user, p])
+      : (selectedUser !== "all" ? filteredUsers : filteredModels);
+    let totalReq = 0, totalTokens = 0, ttftSum = 0, ttftCount = 0, totalCost = 0;
+    kpiSource.forEach(([, s]) => {
+      totalReq += s.requests;
+      totalTokens += s.prompts + s.responses;
+      ttftSum += s.ttftSum;
+      ttftCount += s.ttftCount;
+      totalCost += s.cost;
+    });
+
+    document.getElementById("admin-kpi-requests").textContent = totalReq.toLocaleString();
+    document.getElementById("admin-kpi-tokens").textContent =
+      totalTokens >= 1000000
+        ? `${(totalTokens / 1000000).toFixed(2)}M`
+        : totalTokens >= 1000
+          ? `${(totalTokens / 1000).toFixed(1)}K`
+          : totalTokens.toLocaleString();
+    const avgTtft = ttftCount > 0 ? Math.round(ttftSum / ttftCount) : 0;
+    document.getElementById("admin-kpi-ttft").textContent = `${avgTtft} ms`;
+    document.getElementById("admin-kpi-cost").textContent = `$${totalCost.toFixed(2)}`;
+
+    renderAdminBarChart("admin-chart-models", filteredModels, "#8b5cf6", (c) => {
+      if (adminModelChart) adminModelChart.destroy();
+      adminModelChart = c;
+    });
+    renderAdminBarChart("admin-chart-users", filteredUsers, "#06b6d4", (c) => {
+      if (adminUserChart) adminUserChart.destroy();
+      adminUserChart = c;
+    });
+
+    const theadRow = document.getElementById("admin-breakdown-thead-row");
+    const tbody = document.getElementById("admin-analytics-table-body");
+
+    if (viewBy === "user_model") {
+      document.getElementById("admin-breakdown-title").textContent = "Model & Cost Breakdown per User";
+      theadRow.innerHTML = `
+        <th>Developer Email</th>
+        <th>AI Model</th>
+        <th>Requests</th>
+        <th>Prompt Tokens</th>
+        <th>Response Tokens</th>
+        <th>Total Tokens</th>
+        <th>Avg TTFT</th>
+        <th>Est. Cost</th>
+      `;
+      const sortedPairs = [...filteredPairs].sort((a, b) => b.cost - a.cost);
+      if (sortedPairs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">No user/model analytics data matches the selected filters.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = sortedPairs
+        .map((r) => {
+          const avg = r.ttftCount > 0 ? Math.round(r.ttftSum / r.ttftCount) : 0;
+          return `
+          <tr>
+            <td style="font-weight:600;">${r.user}</td>
+            <td><code>${r.model}</code></td>
+            <td>${r.requests.toLocaleString()}</td>
+            <td>${r.prompts.toLocaleString()}</td>
+            <td>${r.responses.toLocaleString()}</td>
+            <td style="font-weight:700;">${(r.prompts + r.responses).toLocaleString()}</td>
+            <td>${avg} ms</td>
+            <td style="font-weight:600; color:var(--success);">$${r.cost.toFixed(4)}</td>
+          </tr>
+        `;
+        })
+        .join("");
+      return;
+    }
+
+    const dimLabel = viewBy === "model" ? "AI Model" : viewBy === "user" ? "Developer Email" : "API Product";
+    document.getElementById("admin-breakdown-title").textContent = `Global Usage Breakdown by ${dimLabel}`;
+    theadRow.innerHTML = `
+      <th id="admin-breakdown-dim-header">${dimLabel}</th>
+      <th>Requests</th>
+      <th>Prompt Tokens</th>
+      <th>Response Tokens</th>
+      <th>Total Tokens</th>
+      <th>Avg TTFT</th>
+      <th>Est. Cost</th>
+    `;
+
+    const rows = (viewBy === "model" ? filteredModels : viewBy === "user" ? filteredUsers : filteredProducts)
+      .sort((a, b) => b[1].cost - a[1].cost);
+
+    if (rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">No global analytics data matches the selected filters.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows
+      .map(([name, r]) => {
+        const avg = r.ttftCount > 0 ? Math.round(r.ttftSum / r.ttftCount) : 0;
+        return `
+        <tr>
+          <td style="font-weight:600;">${name}</td>
+          <td>${r.requests.toLocaleString()}</td>
+          <td>${r.prompts.toLocaleString()}</td>
+          <td>${r.responses.toLocaleString()}</td>
+          <td style="font-weight:700;">${(r.prompts + r.responses).toLocaleString()}</td>
+          <td>${avg} ms</td>
+          <td style="font-weight:600; color:var(--success);">$${r.cost.toFixed(4)}</td>
+        </tr>
+      `;
+      })
+      .join("");
+  }
+
+  function renderAdminBarChart(canvasId, entries, color, saveInstance) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const isLight = app.theme === "light";
+    const top = [...entries]
+      .sort((a, b) => b[1].prompts + b[1].responses - (a[1].prompts + a[1].responses))
+      .slice(0, 8);
+
+    const chart = new Chart(canvas.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: top.map(([name]) => name),
+        datasets: [
+          {
+            label: "Total Tokens",
+            data: top.map(([, s]) => s.prompts + s.responses),
+            backgroundColor: color,
+            borderRadius: 4,
+          },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            grid: { color: isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)" },
+            ticks: { color: isLight ? "#475569" : "#9ca3af" },
+          },
+          y: {
+            grid: { color: isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)" },
+            ticks: { color: isLight ? "#475569" : "#9ca3af" },
+          },
+        },
+      },
+    });
+    saveInstance(chart);
+  }
+</script>
