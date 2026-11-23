@@ -11,8 +11,9 @@
         Browse Catalog
         <i data-lucide="arrow-right" style="width:1.1rem; height:1.1rem;"></i>
       </button>
-      <button class="btn btn-secondary" onclick="app.openAuthModal()" id="hero-btn-login">
-        Get Developer Access
+      <button class="btn btn-secondary" id="hero-btn-mcp" type="button">
+        <i data-lucide="plug-zap" style="width:1.1rem; height:1.1rem;"></i>
+        Connect MCP Agent
       </button>
     </div>
   </div>
@@ -573,18 +574,223 @@ body.light .gradient-text {
 }
 </style>
 
+<!-- Connect MCP Agent Dialog -->
+<dialog id="mcp-connect-dialog" class="auth-dialog mcp-dialog" closedby="any" aria-labelledby="mcp-dialog-title">
+  <div class="auth-header" style="margin-bottom: 1rem;">
+    <div style="display:flex;align-items:center;gap:0.6rem;">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:2rem;height:2rem;border-radius:0.5rem;background:rgba(99,102,241,0.15);color:var(--primary);">
+        <i data-lucide="plug-zap" style="width:1.15rem;height:1.15rem;"></i>
+      </span>
+      <h3 id="mcp-dialog-title" style="font-size:1.25rem;margin:0;">Connect MCP Agent</h3>
+    </div>
+    <button class="close-btn" id="btn-close-mcp" type="button" aria-label="Close modal">
+      <i data-lucide="x" style="width:1.4rem;height:1.4rem;"></i>
+    </button>
+  </div>
+
+  <p style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:1.1rem;line-height:1.5;">
+    Connect your AI coding agent to discover APIs, manage apps, and retrieve credentials via Streamable HTTP + OAuth 2.1.
+  </p>
+
+  <div class="mcp-section">
+    <div class="mcp-label-row">
+      <span class="mcp-label">MCP Endpoint URL</span>
+      <span class="mcp-badge">Streamable HTTP · OAuth 2.1</span>
+    </div>
+    <div class="mcp-copy-box">
+      <code id="mcp-endpoint-url" class="mcp-code-inline"></code>
+      <button type="button" class="mcp-copy-btn" data-copy-target="mcp-endpoint-url" aria-label="Copy MCP endpoint URL">
+        <i data-lucide="copy" style="width:0.95rem;height:0.95rem;"></i>
+        <span>Copy</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="mcp-section">
+    <div class="mcp-label-row">
+      <span class="mcp-label">Claude (Claude Code / Claude Desktop)</span>
+      <button type="button" class="mcp-copy-btn" data-copy-target="mcp-claude-snippet" aria-label="Copy Claude CLI command">
+        <i data-lucide="copy" style="width:0.95rem;height:0.95rem;"></i>
+        <span>Copy CLI</span>
+      </button>
+    </div>
+    <pre class="mcp-pre"><code id="mcp-claude-snippet"></code></pre>
+    <p class="mcp-hint">
+      For Claude Desktop <code>claude_desktop_config.json</code>, use <code>npx -y mcp-remote &lt;MCP_URL&gt;</code> under <code>mcpServers</code>.
+    </p>
+  </div>
+
+  <div class="mcp-section" style="margin-bottom:0;">
+    <div class="mcp-label-row">
+      <span class="mcp-label">Antigravity (<code>mcp_config.json</code>)</span>
+      <button type="button" class="mcp-copy-btn" data-copy-target="mcp-antigravity-snippet" aria-label="Copy Antigravity config">
+        <i data-lucide="copy" style="width:0.95rem;height:0.95rem;"></i>
+        <span>Copy JSON</span>
+      </button>
+    </div>
+    <pre class="mcp-pre"><code id="mcp-antigravity-snippet"></code></pre>
+  </div>
+</dialog>
+
+<style>
+dialog.mcp-dialog {
+  width: min(80vw, 960px);
+  max-width: 90vw;
+}
+.mcp-section {
+  margin-bottom: 1.15rem;
+}
+.mcp-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+.mcp-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.mcp-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--primary);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+.mcp-copy-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: var(--surface-alt, rgba(15, 23, 42, 0.06));
+  border: 1px solid var(--border-color);
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.75rem;
+}
+.mcp-code-inline {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow-x: auto;
+  color: var(--text-primary);
+}
+.mcp-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-color);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.mcp-copy-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.mcp-pre {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.55rem;
+  background: var(--surface-alt, rgba(15, 23, 42, 0.06));
+  border: 1px solid var(--border-color);
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+.mcp-hint {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+</style>
+
 <script>
 // Landing page script initializer
 window.viewInitializers['home'] = async function() {
   console.log("Landing page snippet logic running...");
-  
-  // Hide registration button if user is already signed in
-  const heroBtnLogin = document.getElementById('hero-btn-login');
-  if (app.user) {
-    if (heroBtnLogin) {
-      heroBtnLogin.textContent = "Go to Subscriptions";
-      heroBtnLogin.onclick = () => app.navigate('apps');
+
+  const mcpBtn = document.getElementById('hero-btn-mcp');
+  const mcpDialog = document.getElementById('mcp-connect-dialog');
+  const mcpCloseBtn = document.getElementById('btn-close-mcp');
+
+  if (mcpDialog) {
+    const baseUrl = (typeof CONFIG !== 'undefined' && CONFIG.apiHost ? CONFIG.apiHost : window.location.origin).replace(/\/+$/, '');
+    const mcpUrl = `${baseUrl}/api/portals/mcp`;
+
+    const urlEl = document.getElementById('mcp-endpoint-url');
+    const claudeEl = document.getElementById('mcp-claude-snippet');
+    const agEl = document.getElementById('mcp-antigravity-snippet');
+
+    if (urlEl) urlEl.textContent = mcpUrl;
+    if (claudeEl) claudeEl.textContent = `claude mcp add --transport http apigee-portal ${mcpUrl}`;
+    if (agEl) {
+      agEl.textContent = JSON.stringify({
+        mcpServers: {
+          "apigee-portal": {
+            serverUrl: mcpUrl
+          }
+        }
+      }, null, 2);
     }
+
+    if (mcpBtn) {
+      mcpBtn.addEventListener('click', () => {
+        mcpDialog.showModal();
+        if (window.lucide) lucide.createIcons();
+      });
+    }
+    if (mcpCloseBtn) {
+      mcpCloseBtn.addEventListener('click', () => mcpDialog.close());
+    }
+
+    // Light-dismiss fallback for browsers without <dialog closedby> (e.g. Safari)
+    if (!('closedBy' in HTMLDialogElement.prototype)) {
+      mcpDialog.addEventListener('click', (event) => {
+        if (event.target !== mcpDialog) return;
+        const rect = mcpDialog.getBoundingClientRect();
+        const isDialogContent = (
+          rect.top <= event.clientY &&
+          event.clientY <= rect.top + rect.height &&
+          rect.left <= event.clientX &&
+          event.clientX <= rect.left + rect.width
+        );
+        if (!isDialogContent) mcpDialog.close();
+      });
+    }
+
+    mcpDialog.querySelectorAll('.mcp-copy-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const targetId = btn.getAttribute('data-copy-target');
+        const targetEl = targetId ? document.getElementById(targetId) : null;
+        if (!targetEl) return;
+        try {
+          await navigator.clipboard.writeText(targetEl.textContent || '');
+          const labelSpan = btn.querySelector('span');
+          if (labelSpan) {
+            const orig = labelSpan.textContent;
+            labelSpan.textContent = 'Copied!';
+            setTimeout(() => { labelSpan.textContent = orig; }, 1500);
+          }
+        } catch (err) {
+          console.error('Clipboard copy failed:', err);
+        }
+      });
+    });
   }
 
   // Interactive mouse reactions on Apigee Network hero graphic
