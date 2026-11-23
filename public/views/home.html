@@ -3,12 +3,12 @@
     <div class="hero-tag animate-reveal">
       <span class="pulse-dot"></span> Next Generation AI Portal
     </div>
-    <h1 class="hero-title animate-reveal">Discover & Integrate <span class="gradient-text">State-Of-The-Art</span> AI APIs</h1>
+    <h1 class="hero-title animate-reveal">Discover & Integrate <span class="gradient-text">State-Of-The-Art</span> AI Services</h1>
     <p class="hero-subtitle animate-reveal">A secure, scalable developer workspace powering the world's most capable AI models, tools, and autonomous business agents. Experience microsecond latencies with robust analytics.</p>
     
     <div class="hero-actions animate-reveal">
       <button class="btn btn-primary" onclick="app.navigate('catalog')" autofocus>
-        Browse API Catalog
+        Browse Catalog
         <i data-lucide="arrow-right" style="width:1.1rem; height:1.1rem;"></i>
       </button>
       <button class="btn btn-secondary" onclick="app.openAuthModal()" id="hero-btn-login">
@@ -18,26 +18,68 @@
   </div>
   
   <div class="hero-graphics">
-    <div class="mesh-globe">
-      <div class="circle c1"></div>
-      <div class="circle c2"></div>
-      <div class="circle c3"></div>
-    </div>
-    <div class="code-window panel">
-      <div class="window-header">
-        <span class="dot red"></span>
-        <span class="dot yellow"></span>
-        <span class="dot green"></span>
-        <span class="window-title">curl_inference.sh</span>
+    <div class="apigee-network" aria-label="Apigee AI Gateway connecting Model Garden, Claude Code, Antigravity, Any System, and Any Model">
+      <div class="network-ring ring-outer"></div>
+      <div class="network-ring ring-inner"></div>
+
+      <svg class="network-lines" viewBox="0 0 420 420" aria-hidden="true">
+        <defs>
+          <linearGradient id="netGrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="420" y2="420">
+            <stop offset="0%" stop-color="#6366f1" stop-opacity="0.95" />
+            <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.95" />
+          </linearGradient>
+        </defs>
+        <line class="net-link" data-node="top" x1="210" y1="210" x2="210" y2="58" />
+        <line class="net-link d1" data-node="tr" x1="210" y1="210" x2="354" y2="163" />
+        <line class="net-link d2" data-node="br" x1="210" y1="210" x2="299" y2="333" />
+        <line class="net-link d3" data-node="bl" x1="210" y1="210" x2="121" y2="333" />
+        <line class="net-link d4" data-node="tl" x1="210" y1="210" x2="66" y2="163" />
+      </svg>
+
+      <!-- Center Hub: Apigee -->
+      <div class="network-hub" id="apigee-network-hub">
+        <div class="hub-pulse"></div>
+        <div class="hub-core">
+          <i data-lucide="shield-check" style="width: 1.75rem; height: 1.75rem; color: #fff"></i>
+          <span class="hub-title">Apigee</span>
+          <span class="hub-sub">AI Gateway</span>
+        </div>
       </div>
-      <div class="window-body">
-        <pre><code><span class="keyword">curl</span> -X POST <span class="string">"https://api.apigee.com/v1/models/gemini-pro"</span> \
-  -H <span class="string">"Content-Type: application/json"</span> \
-  -H <span class="string">"Authorization: Bearer <span class="variable">$API_KEY</span>"</span> \
-  -d <span class="string">'{
-    "prompt": "Optimize our pricing catalog analytics...",
-    "temperature": 0.2
-  }'</span></code></pre>
+
+      <!-- Orbiting Connected Nodes -->
+      <div class="network-node panel node-top" data-node="top">
+        <span class="node-icon" style="background: rgba(99, 102, 241, 0.18); color: #818cf8">
+          <i data-lucide="sparkles" style="width: 1rem; height: 1rem"></i>
+        </span>
+        <span>Model Garden</span>
+      </div>
+
+      <div class="network-node panel node-tr" data-node="tr">
+        <span class="node-icon" style="background: rgba(168, 85, 247, 0.18); color: #c084fc">
+          <i data-lucide="terminal" style="width: 1rem; height: 1rem"></i>
+        </span>
+        <span>Claude Code</span>
+      </div>
+
+      <div class="network-node panel node-br" data-node="br">
+        <span class="node-icon" style="background: rgba(6, 182, 212, 0.18); color: #22d3ee">
+          <i data-lucide="rocket" style="width: 1rem; height: 1rem"></i>
+        </span>
+        <span>Antigravity</span>
+      </div>
+
+      <div class="network-node panel node-bl" data-node="bl">
+        <span class="node-icon" style="background: rgba(16, 185, 129, 0.18); color: #34d399">
+          <i data-lucide="server" style="width: 1rem; height: 1rem"></i>
+        </span>
+        <span>Any System</span>
+      </div>
+
+      <div class="network-node panel node-tl" data-node="tl">
+        <span class="node-icon" style="background: rgba(245, 158, 11, 0.18); color: #fbbf24">
+          <i data-lucide="cpu" style="width: 1rem; height: 1rem"></i>
+        </span>
+        <span>Any Model</span>
       </div>
     </div>
   </div>
@@ -198,83 +240,221 @@ body.light .gradient-text {
   gap: 1rem;
 }
 
-/* Hero Right Side visuals */
+/* Hero Right Side visuals: Dynamic Apigee Network */
 .hero-graphics {
   position: relative;
-  height: 400px;
+  min-height: 580px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.mesh-globe {
-  position: absolute;
-  width: 320px;
-  height: 320px;
-  opacity: 0.35;
-}
-.circle {
-  position: absolute;
-  border: 1px solid var(--primary);
-  border-radius: 50%;
-  top: 0; left: 0; right: 0; bottom: 0;
-  animation: rotateCircle 10s linear infinite;
-}
-.circle.c1 { transform: rotateX(70deg) rotateY(20deg); }
-.circle.c2 { transform: rotateX(30deg) rotateY(60deg); animation-duration: 15s; }
-.circle.c3 { transform: rotateX(60deg) rotateY(-40deg); animation-duration: 20s; }
 
-@keyframes rotateCircle {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.code-window.panel {
+.apigee-network {
   position: relative;
-  z-index: 5;
-  width: 100%;
-  max-width: 480px;
-  border-radius: 0.75rem;
-  overflow: hidden;
-  box-shadow: var(--shadow-2xl);
-  padding: 0;
-  background: #0b0f19;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  width: 580px;
+  height: 580px;
+  max-width: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.25s ease-out;
+  will-change: transform;
 }
-.window-header {
-  background: rgba(0, 0, 0, 0.4);
-  padding: 0.75rem 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
+@media (max-width: 1200px) {
+  .apigee-network {
+    transform: scale(0.85);
+    transform-origin: center;
+  }
 }
-.dot {
-  width: 10px;
-  height: 10px;
+
+@media (max-width: 640px) {
+  .hero-graphics {
+    min-height: 390px;
+  }
+  .apigee-network {
+    transform: scale(0.64);
+    transform-origin: center;
+  }
+}
+
+.network-ring {
+  position: absolute;
   border-radius: 50%;
-  display: inline-block;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
-.dot.red { background: #ef4444; }
-.dot.yellow { background: #f59e0b; }
-.dot.green { background: #10b981; }
-.window-title {
-  font-size: 0.75rem;
-  color: #94a3b8;
-  font-family: monospace;
-  margin-left: 0.5rem;
+
+.ring-outer {
+  width: 430px;
+  height: 430px;
+  border: 1.5px dashed rgba(99, 102, 241, 0.35);
+  animation: spinSlow 36s linear infinite;
 }
-.window-body {
-  padding: 1.5rem;
-  background: #0b0f19;
-  color: #f8fafc;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.875rem;
-  line-height: 1.6;
-  overflow-x: auto;
+
+.ring-inner {
+  width: 280px;
+  height: 280px;
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  animation: spinSlowReverse 24s linear infinite;
 }
-.window-body .keyword { color: #f43f5e; }
-.window-body .string { color: #10b981; }
-.window-body .variable { color: #38bdf8; }
+
+@keyframes spinSlow {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes spinSlowReverse {
+  from { transform: translate(-50%, -50%) rotate(360deg); }
+  to { transform: translate(-50%, -50%) rotate(0deg); }
+}
+
+.network-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.net-link {
+  stroke: url(#netGrad);
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+  transition: stroke-width 0.25s ease, opacity 0.25s ease, filter 0.25s ease;
+  animation: dashFlow 1.8s linear infinite;
+}
+.apigee-network.has-active .net-link {
+  opacity: 0.28;
+}
+.net-link.active,
+.apigee-network.has-active .net-link.active {
+  opacity: 1;
+  stroke-width: 3.2;
+  filter: drop-shadow(0 0 6px rgba(99, 102, 241, 0.75));
+  animation-duration: 0.75s;
+}
+.net-link.d1 { animation-delay: -0.35s; }
+.net-link.d2 { animation-delay: -0.7s; }
+.net-link.d3 { animation-delay: -1.05s; }
+.net-link.d4 { animation-delay: -1.4s; }
+
+@keyframes dashFlow {
+  to { stroke-dashoffset: -24; }
+}
+
+.network-hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+}
+
+.hub-pulse {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.38) 0%, rgba(6, 182, 212, 0) 70%);
+  animation: hubPulse 2.6s ease-in-out infinite;
+}
+
+@keyframes hubPulse {
+  0%, 100% { transform: scale(0.95); opacity: 0.7; }
+  50% { transform: scale(1.16); opacity: 1; }
+}
+
+.hub-core {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  box-shadow: 0 14px 40px rgba(99, 102, 241, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.hub-title {
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+
+.hub-sub {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.network-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 1.15rem;
+  border-radius: 9999px;
+  font-size: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease, box-shadow 0.22s ease;
+  animation: nodeFloat 4s ease-in-out infinite;
+}
+
+.network-node:hover,
+.network-node.active {
+  animation-play-state: paused;
+  transform: translate(-50%, -50%) scale(1.09);
+  border-color: var(--primary);
+  box-shadow: 0 10px 28px rgba(99, 102, 241, 0.32);
+}
+
+.network-hub {
+  cursor: pointer;
+}
+
+.network-hub .hub-core {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+}
+
+.network-hub:hover .hub-core,
+.apigee-network.has-active .network-hub .hub-core {
+  transform: scale(1.06);
+  box-shadow: 0 14px 38px rgba(99, 102, 241, 0.65);
+}
+
+.node-icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.node-top { top: 13.8%; left: 50%; animation-delay: 0s; }
+.node-tr  { top: 38.8%; left: 84.3%; animation-delay: -0.8s; }
+.node-br  { top: 79.3%; left: 71.2%; animation-delay: -1.6s; }
+.node-bl  { top: 79.3%; left: 28.8%; animation-delay: -2.4s; }
+.node-tl  { top: 38.8%; left: 15.7%; animation-delay: -3.2s; }
+
+@keyframes nodeFloat {
+  0%, 100% { transform: translate(-50%, -50%) translateY(0px); }
+  50% { transform: translate(-50%, -50%) translateY(-5px); }
+}
 
 /* Category Cards Section */
 .section-title {
@@ -405,6 +585,49 @@ window.viewInitializers['home'] = async function() {
       heroBtnLogin.textContent = "Go to Subscriptions";
       heroBtnLogin.onclick = () => app.navigate('apps');
     }
+  }
+
+  // Interactive mouse reactions on Apigee Network hero graphic
+  const networkEl = document.querySelector('.apigee-network');
+  if (networkEl) {
+    const nodes = networkEl.querySelectorAll('.network-node[data-node]');
+    const links = networkEl.querySelectorAll('.net-link[data-node]');
+    const hub = document.getElementById('apigee-network-hub');
+
+    nodes.forEach((node) => {
+      const id = node.getAttribute('data-node');
+      node.addEventListener('mouseenter', () => {
+        networkEl.classList.add('has-active');
+        node.classList.add('active');
+        links.forEach((l) => l.classList.toggle('active', l.getAttribute('data-node') === id));
+      });
+      node.addEventListener('mouseleave', () => {
+        networkEl.classList.remove('has-active');
+        node.classList.remove('active');
+        links.forEach((l) => l.classList.remove('active'));
+      });
+    });
+
+    if (hub) {
+      hub.addEventListener('mouseenter', () => {
+        networkEl.classList.add('has-active');
+        links.forEach((l) => l.classList.add('active'));
+      });
+      hub.addEventListener('mouseleave', () => {
+        networkEl.classList.remove('has-active');
+        links.forEach((l) => l.classList.remove('active'));
+      });
+    }
+
+    networkEl.addEventListener('mousemove', (e) => {
+      const rect = networkEl.getBoundingClientRect();
+      const dx = ((e.clientX - rect.left) / rect.width - 0.5) * 10;
+      const dy = ((e.clientY - rect.top) / rect.height - 0.5) * 10;
+      networkEl.style.transform = `perspective(700px) rotateX(${(-dy).toFixed(2)}deg) rotateY(${dx.toFixed(2)}deg)`;
+    });
+    networkEl.addEventListener('mouseleave', () => {
+      networkEl.style.transform = '';
+    });
   }
 };
 </script>
